@@ -1,0 +1,6 @@
+name = "byrdocs-publish"
+compatibility_date = "2025-03-06"
+compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
+
+[env.production.vars]
+NODE_VERSION = "23.9.0"

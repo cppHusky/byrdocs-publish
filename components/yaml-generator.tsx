@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import * as ISBN from "isbn3";
+import { useState, useEffect } from "react";
 import hljs from "highlight.js/lib/core";
 import yaml from "highlight.js/lib/languages/yaml";
-import * as YAML from "js-yaml";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
   Download,
@@ -33,22 +30,8 @@ import {
   Trash2,
   RotateCcw,
   Copy,
-  HelpCircle,
   Keyboard,
 } from "lucide-react";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -56,102 +39,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Check, X } from "lucide-react";
+import { CheckboxGroup } from "./yaml-generator/CheckboxGroup";
+import { CollegeMultiSelect } from "./yaml-generator/CollegeMultiSelect";
+import { CourseNameInput } from "./yaml-generator/CourseNameInput";
+import { extractFileTypeFromURL, extractMD5FromURL, validateURLFileType, validateYear, validateYearRange } from "@/lib/validate";
+import { BookData, DocData, FileType, TestData, FormData } from "@/lib/types";
+import { generateYaml } from "@/lib/yaml";
+import { validateISBN, formatISBN } from "@/lib/isbn";
+import { useTheme } from "./theme-provider";
 
-type FileType = "book" | "test" | "doc";
-
-interface BookData {
-  title: string;
-  authors: string[];
-  translators: string[];
-  edition: string;
-  publisher: string;
-  publish_year: string;
-  isbn: string[];
-  filetype: string;
-}
-
-interface TestData {
-  college: string[];
-  course: {
-    type: string;
-    name: string;
-  };
-  time: {
-    start: string;
-    end: string;
-    semester: string;
-    stage: string;
-  };
-  filetype: string;
-  content: string[];
-}
-
-interface DocData {
-  title: string;
-  filetype: string;
-  course: Array<{
-    type: string;
-    name: string;
-  }>;
-  content: string[];
-}
-
-interface FormData {
-  id: string;
-  url: string;
-  type: FileType;
-  data: BookData | TestData | DocData;
-}
-
-const COLLEGES = [
-  "信息与通信工程学院",
-  "电子工程学院",
-  "计算机学院（国家示范性软件学院）",
-  "网络空间安全学院",
-  "人工智能学院",
-  "智能工程与自动化学院",
-  "集成电路学院",
-  "经济管理学院",
-  "理学院",
-  "未来学院",
-  "人文学院",
-  "数字媒体与设计艺术学院",
-  "马克思主义学院",
-  "国际学院",
-  "应急管理学院",
-  "网络教育学院（继续教育学院）",
-  "玛丽女王海南学院",
-  "体育部",
-  "卓越工程师学院",
-];
 
 export default function YamlGenerator() {
+  const { actualTheme } = useTheme();
   // 课程列表状态
   const [courseList, setCourseList] = useState<string[]>([]);
-  // 主题状态
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // 检测主题变化
-  useEffect(() => {
-    const checkTheme = () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      setIsDarkMode(isDark);
-    };
-
-    // 初始检查
-    checkTheme();
-
-    // 监听主题变化
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class']
-    });
-
-    return () => observer.disconnect();
-  }, []);
 
   // 初始化 highlight.js 和获取课程数据
   useEffect(() => {
@@ -190,232 +92,6 @@ export default function YamlGenerator() {
     fetchCourseData();
   }, []);
 
-  // 从URL中提取MD5
-  const extractMD5FromURL = (url: string): string => {
-    const urlPattern = /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
-    const match = url.match(urlPattern);
-    return match ? match[1] : "";
-  };
-
-  // 从URL中提取文件格式
-  const extractFileTypeFromURL = (url: string, fileType: FileType): string => {
-    const urlPattern = /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
-    const match = url.match(urlPattern);
-    if (match) {
-      const extension = match[2].toLowerCase();
-      
-      // 只有doc类型允许使用zip格式
-      if (fileType === 'doc') {
-        const formatMap: { [key: string]: string } = {
-          'pdf': 'pdf',
-          'zip': 'zip',
-          'rar': 'zip', // RAR文件也归类为压缩文件
-          '7z': 'zip',  // 7z文件也归类为压缩文件
-          'doc': 'pdf', // Word文档归类为PDF
-          'docx': 'pdf',
-          'ppt': 'pdf', // PowerPoint归类为PDF
-          'pptx': 'pdf',
-          'xls': 'pdf', // Excel归类为PDF
-          'xlsx': 'pdf'
-        };
-        return formatMap[extension] || 'pdf';
-      } else {
-        // book和test类型只能使用pdf
-        return 'pdf';
-      }
-    }
-    return 'pdf'; // 默认返回pdf
-  };
-
-  // 验证URL格式是否正确
-  const validateURLFormat = (url: string): { isValid: boolean; error?: string } => {
-    if (!url.trim()) {
-      return { isValid: true }; // 空URL不验证
-    }
-
-    // 检查基本URL格式
-    if (!url.startsWith('https://byrdocs.org/files/')) {
-      return { 
-        isValid: false, 
-        error: "URL必须以 https://byrdocs.org/files/ 开头" 
-      };
-    }
-
-    // 提取文件部分
-    const filePart = url.replace('https://byrdocs.org/files/', '');
-    
-    // 检查是否包含文件扩展名
-    const dotIndex = filePart.lastIndexOf('.');
-    if (dotIndex === -1) {
-      return { 
-        isValid: false, 
-        error: "URL中缺少文件扩展名，格式应为：https://byrdocs.org/files/[MD5].[扩展名]" 
-      };
-    }
-
-    const md5Part = filePart.substring(0, dotIndex);
-    const extensionPart = filePart.substring(dotIndex + 1);
-
-    // 验证MD5部分
-    if (!md5Part) {
-      return { 
-        isValid: false, 
-        error: "URL中缺少MD5哈希值" 
-      };
-    }
-
-    if (md5Part.length !== 32) {
-      return { 
-        isValid: false, 
-        error: `MD5 哈希值长度不正确，应为 32 位，当前为 ${md5Part.length} 位` 
-      };
-    }
-
-    if (!/^[a-f0-9]+$/i.test(md5Part)) {
-      return { 
-        isValid: false, 
-        error: "MD5哈希值格式不正确，只能包含 0-9 和 a-f 字符" 
-      };
-    }
-
-    // 验证文件扩展名部分
-    if (!extensionPart) {
-      return { 
-        isValid: false, 
-        error: "URL中缺少文件扩展名" 
-      };
-    }
-
-    if (!/^[a-zA-Z0-9]+$/.test(extensionPart)) {
-      return { 
-        isValid: false, 
-        error: "文件扩展名格式不正确，只能包含字母和数字" 
-      };
-    }
-
-    // 检查是否有额外的路径或参数
-    const fullPattern = /^https:\/\/byrdocs\.org\/files\/[a-f0-9]{32}\.[a-zA-Z0-9]+$/i;
-    if (!fullPattern.test(url)) {
-      return { 
-        isValid: false, 
-        error: "URL格式不正确，不能包含额外的路径或参数" 
-      };
-    }
-
-    return { isValid: true };
-  };
-
-  // 验证URL文件格式是否正确
-  const validateURLFileType = (url: string, fileType: FileType): { isValid: boolean; error?: string } => {
-    if (!url.trim()) {
-      return { isValid: true }; // 空URL不验证
-    }
-
-    // 首先验证URL格式
-    const urlFormatValidation = validateURLFormat(url);
-    if (!urlFormatValidation.isValid) {
-      return urlFormatValidation;
-    }
-
-    const urlPattern = /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
-    const match = url.match(urlPattern);
-    if (!match) {
-      return { isValid: false, error: "无法从URL中检测到文件扩展名" };
-    }
-
-    const extension = match[2].toLowerCase();
-    
-    // 定义允许的扩展名
-    const allowedExtensions = {
-      book: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'],
-      test: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'],
-      doc: ['pdf', 'zip', 'rar', '7z', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']
-    };
-
-    const allowed = allowedExtensions[fileType];
-    if (!allowed.includes(extension)) {
-      const fileTypeName = fileType === 'book' ? '书籍' : fileType === 'test' ? '试题' : '资料';
-      const allowedFormats = fileType === 'doc' ? 'PDF 或 ZIP' : 'PDF';
-      return { 
-        isValid: false, 
-        error: `${fileTypeName}类型只支持 ${allowedFormats} 格式，检测到的格式为 ${extension.toUpperCase()}` 
-      };
-    }
-
-    // 特殊检查：book和test类型不能使用压缩文件格式
-    if ((fileType === 'book' || fileType === 'test') && ['zip', 'rar', '7z'].includes(extension)) {
-      const fileTypeName = fileType === 'book' ? '书籍' : '试题';
-      return { 
-        isValid: false, 
-        error: `${fileTypeName}类型不支持压缩文件格式 (${extension.toUpperCase()})，请使用 PDF 格式` 
-      };
-    }
-
-    return { isValid: true };
-  };
-
-  // 验证年份是否有效
-  const validateYear = (year: string): boolean => {
-    if (!year) return true; // 空值不验证
-    
-    // 验证是否为整数
-    if (!/^\d+$/.test(year.trim())) {
-      return false;
-    }
-    
-    const yearNum = parseInt(year);
-    const currentYear = new Date().getFullYear();
-    // 只验证不能超过当前年份，不限制最小年份
-    return yearNum > 0 && yearNum <= currentYear;
-  };
-
-  // 验证年份范围
-  const validateYearRange = (startYear: string, endYear: string): { isValid: boolean; error?: string } => {
-    // 如果两个年份都为空，则通过验证
-    if (!startYear && !endYear) {
-      return { isValid: true };
-    }
-
-    // 如果只填了一个年份，要求另一个也必须填
-    if (startYear && !endYear) {
-      return { isValid: false, error: "填写了开始年份后，结束年份也必须填写" };
-    }
-
-    if (!startYear && endYear) {
-      return { isValid: false, error: "填写了结束年份后，开始年份也必须填写" };
-    }
-
-    // 如果两个年份都填了，验证范围关系
-    if (startYear && endYear) {
-      // 验证是否为整数
-      if (!/^\d+$/.test(startYear.trim())) {
-        return { isValid: false, error: "开始年份必须是整数" };
-      }
-      
-      if (!/^\d+$/.test(endYear.trim())) {
-        return { isValid: false, error: "结束年份必须是整数" };
-      }
-
-      const start = parseInt(startYear);
-      const end = parseInt(endYear);
-      const currentYear = new Date().getFullYear();
-
-      if (start < 2000 || start > currentYear) {
-        return { isValid: false, error: `开始年份必须在 2000 到 ${currentYear} 之间` };
-      }
-
-      if (end < 2000 || end > currentYear) {
-        return { isValid: false, error: `结束年份必须在 2000 到 ${currentYear} 之间` };
-      }
-
-      if (end !== start && end !== start + 1) {
-        return { isValid: false, error: "结束年份必须等于开始年份或开始年份+1" };
-      }
-    }
-
-    return { isValid: true };
-  };
-
   const [step, setStep] = useState(1);
   const [fileType, setFileType] = useState<FileType>("book");
   const [urlValidationError, setUrlValidationError] = useState<string>("");
@@ -441,112 +117,8 @@ export default function YamlGenerator() {
     } as BookData,
   });
 
-  // ISBN 验证函数
-  const validateISBN = (isbn: string): boolean => {
-    const parsed = ISBN.parse(isbn);
-    return !!(parsed && parsed.isValid);
-  };
-
-  // ISBN 格式化函数
-  const formatISBN = (isbn: string): string => {
-    const parsed = ISBN.parse(isbn);
-    if (parsed && parsed.isValid) {
-      return parsed.isbn13h || isbn;
-    }
-    return isbn;
-  };
-
-  const generateYaml = () => {
-    const schemaUrl = `https://byrdocs.org/schema/${fileType}.yaml`;
-    
-    // 构建YAML对象
-    const yamlObject: any = {
-      id: formData.id,
-      url: formData.url,
-      type: formData.type,
-      data: {}
-    };
-
-    if (fileType === "book") {
-      const data = formData.data as BookData;
-      yamlObject.data.title = data.title;
-      
-      // 只添加非空的数组
-      const authors = data.authors.filter((a) => a.trim());
-      if (authors.length > 0) {
-        yamlObject.data.authors = authors;
-      }
-      
-      const translators = data.translators.filter((t) => t.trim());
-      if (translators.length > 0) {
-        yamlObject.data.translators = translators;
-      }
-      
-      if (data.edition) yamlObject.data.edition = data.edition;
-      if (data.publisher) yamlObject.data.publisher = data.publisher;
-      if (data.publish_year) yamlObject.data.publish_year = data.publish_year;
-      
-      const isbn = data.isbn.filter((i) => i.trim());
-      if (isbn.length > 0) {
-        yamlObject.data.isbn = isbn;
-      }
-      
-      yamlObject.data.filetype = data.filetype;
-    } else if (fileType === "test") {
-      const data = formData.data as TestData;
-      
-      const college = data.college.filter((c) => c.trim());
-      if (college.length > 0) {
-        yamlObject.data.college = college;
-      }
-      
-      yamlObject.data.course = {
-        name: data.course.name
-      };
-      if (data.course.type) {
-        yamlObject.data.course.type = data.course.type;
-      }
-      
-      yamlObject.data.time = {};
-      if (data.time.start) yamlObject.data.time.start = data.time.start;
-      if (data.time.end) yamlObject.data.time.end = data.time.end;
-      if (data.time.semester) yamlObject.data.time.semester = data.time.semester;
-      if (data.time.stage) yamlObject.data.time.stage = data.time.stage;
-      
-      yamlObject.data.filetype = data.filetype;
-      
-      if (data.content.length > 0) {
-        yamlObject.data.content = data.content;
-      }
-    } else if (fileType === "doc") {
-      const data = formData.data as DocData;
-      yamlObject.data.title = data.title;
-      yamlObject.data.filetype = data.filetype;
-      yamlObject.data.course = data.course.map(course => ({
-        ...(course.type && { type: course.type }),
-        name: course.name
-      }));
-      
-      if (data.content.length > 0) {
-        yamlObject.data.content = data.content;
-      }
-    }
-
-    // 使用js-yaml生成YAML字符串
-    const yamlContent = YAML.dump(yamlObject, {
-      indent: 2,
-      lineWidth: -1, // 不限制行宽
-      noRefs: true,  // 不使用引用
-      quotingType: '"', // 使用双引号
-      forceQuotes: false // 不强制所有字符串都加引号
-    });
-
-    // 添加schema注释
-    return `# yaml-language-server: $schema=${schemaUrl}\n\n${yamlContent}`;
-  };
-
   const downloadYaml = () => {
-    const yamlContent = generateYaml();
+    const yamlContent = generateYaml(fileType, formData);
     const blob = new Blob([yamlContent], { type: "text/yaml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -617,7 +189,7 @@ export default function YamlGenerator() {
 
   const copyYamlToClipboard = async () => {
     try {
-      const yamlContent = generateYaml();
+      const yamlContent = generateYaml(fileType, formData);
       await navigator.clipboard.writeText(yamlContent);
       setIsCopied(true);
       
@@ -838,65 +410,6 @@ export default function YamlGenerator() {
     return false;
   };
 
-  // 获取验证错误信息
-  const getValidationErrors = (): string[] => {
-    const errors: string[] = [];
-    
-    if (fileType === "book") {
-      const data = formData.data as BookData;
-      
-      if (!data.title) {
-        errors.push("书名");
-      }
-      
-      if (!data.authors.some((a) => a.trim())) {
-        errors.push("作者");
-      }
-      
-      const hasValidISBN = data.isbn.some(
-        (isbn) => isbn.trim() && validateISBN(isbn)
-      );
-      if (!hasValidISBN) {
-        errors.push("有效的ISBN");
-      }
-      
-      if (data.publish_year && !validateYear(data.publish_year)) {
-        errors.push("有效的出版年份");
-      }
-    } else if (fileType === "test") {
-      const data = formData.data as TestData;
-      
-      if (!data.course.name) {
-        errors.push("课程名称");
-      }
-      
-      if (data.content.length === 0) {
-        errors.push("内容类型");
-      }
-      
-      const yearValidation = validateYearRange(data.time.start, data.time.end);
-      if (!yearValidation.isValid) {
-        errors.push("有效的年份范围");
-      }
-    } else if (fileType === "doc") {
-      const data = formData.data as DocData;
-      
-      if (!data.title) {
-        errors.push("标题");
-      }
-      
-      if (!data.course.every((c) => c.name.trim())) {
-        errors.push("课程名称");
-      }
-      
-      if (data.content.length === 0) {
-        errors.push("内容类型");
-      }
-    }
-    
-    return errors;
-  };
-
   // 获取需要高亮的字段ID
   const getHighlightedFieldIds = (): string[] => {
     const fieldIds: string[] = [];
@@ -1011,8 +524,6 @@ export default function YamlGenerator() {
               }, 100);
             }
           }
-        } else if (e.key === 'ArrowRight' && step === 4) {
-          // 第四页不能再向前了，忽略
         }
         return;
       }
@@ -2148,21 +1659,14 @@ export default function YamlGenerator() {
         <h2 className="text-2xl font-bold">预览和下载</h2>
         <p className="text-muted-foreground">检查生成的YAML文件并下载</p>
       </div>
-
-      {/* <div 
-            className="bg-muted p-4 rounded-lg text-sm overflow-x-auto"
-            dangerouslySetInnerHTML={{
-              __html: hljs.highlight(generateYaml(), { language: 'yaml' }).value
-            }}
-          /> */}
       <div className="relative">
         <div className={`p-4 rounded-lg text-sm overflow-x-auto border yaml-highlight ${
-          isDarkMode ? 'yaml-dark' : 'yaml-light'
+          actualTheme === 'dark' ? 'yaml-dark' : 'yaml-light'
         }`}>
           <pre
             className="whitespace-pre-wrap m-0 pr-12"
             dangerouslySetInnerHTML={{
-              __html: hljs.highlight(generateYaml(), { language: "yaml" }).value,
+              __html: hljs.highlight(generateYaml(fileType, formData), { language: "yaml" }).value,
             }}
           />
         </div>
@@ -2383,7 +1887,7 @@ export default function YamlGenerator() {
                 {step === 3 && (
                   <div className="p-3 bg-muted/50 rounded-lg">
                     组合使用 <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>，
-                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Tab</kbd> 等常用快捷键
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Tab</kbd> 等常用快捷键，复选框列表可使用上下箭头切换选项，空格键切换选中状态
                   </div>
                 )}
                 
@@ -2408,374 +1912,6 @@ export default function YamlGenerator() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-// 课程名称自动补全组件
-function CourseNameInput({
-  value,
-  onChange,
-  courseList,
-  placeholder = "例如：概率论与数理统计",
-  isHighlighted = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  courseList: string[];
-  placeholder?: string;
-  isHighlighted?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState(value);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  // 同步外部 value 变化
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
-  // 过滤课程列表
-  const filteredCourses = courseList.filter((course) =>
-    course.toLowerCase().includes(inputValue.toLowerCase())
-  ).slice(0, 10);
-
-  // 重置高亮索引当列表变化时
-  useEffect(() => {
-    setHighlightedIndex(-1);
-  }, [filteredCourses.length]);
-
-  // 滚动到高亮项
-  const scrollToHighlighted = (index: number) => {
-    if (listRef.current && index >= 0) {
-      const listElement = listRef.current;
-      const itemElement = listElement.children[index] as HTMLElement;
-      
-      if (itemElement) {
-        const listRect = listElement.getBoundingClientRect();
-        const itemRect = itemElement.getBoundingClientRect();
-        
-        // 检查项目是否在可视区域内
-        const isVisible = itemRect.top >= listRect.top && itemRect.bottom <= listRect.bottom;
-        
-        if (!isVisible) {
-          // 计算需要滚动的距离
-          const scrollTop = listElement.scrollTop;
-          const itemOffsetTop = itemElement.offsetTop;
-          const itemHeight = itemElement.offsetHeight;
-          const listHeight = listElement.clientHeight;
-          
-          if (itemRect.top < listRect.top) {
-            // 项目在可视区域上方，滚动到顶部
-            listElement.scrollTop = itemOffsetTop;
-          } else if (itemRect.bottom > listRect.bottom) {
-            // 项目在可视区域下方，滚动到底部
-            listElement.scrollTop = itemOffsetTop - listHeight + itemHeight;
-          }
-        }
-      }
-    }
-  };
-
-  const handleSelect = (course: string) => {
-    setInputValue(course);
-    onChange(course);
-    setOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  const handleInputChange = (newValue: string) => {
-    setInputValue(newValue);
-    onChange(newValue);
-    // 总是显示下拉列表如果有输入内容
-    setOpen(newValue.trim().length > 0);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === 'ArrowDown' && inputValue.trim()) {
-        e.preventDefault();
-        setOpen(true);
-        setHighlightedIndex(0);
-      }
-      return;
-    }
-
-    if (filteredCourses.length === 0) {
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex(prev => {
-          const newIndex = prev < filteredCourses.length - 1 ? prev + 1 : 0;
-          // 延迟执行滚动，确保状态已更新
-          setTimeout(() => scrollToHighlighted(newIndex), 0);
-          return newIndex;
-        });
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex(prev => {
-          const newIndex = prev > 0 ? prev - 1 : filteredCourses.length - 1;
-          // 延迟执行滚动，确保状态已更新
-          setTimeout(() => scrollToHighlighted(newIndex), 0);
-          return newIndex;
-        });
-        break;
-      case 'Enter':
-      case 'Tab':
-        if (highlightedIndex >= 0 && highlightedIndex < filteredCourses.length) {
-          e.preventDefault();
-          handleSelect(filteredCourses[highlightedIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setOpen(false);
-        setHighlightedIndex(-1);
-        break;
-    }
-  };
-
-  const handleFocus = () => {
-    if (inputValue.trim().length > 0) {
-      setOpen(true);
-    }
-  };
-
-  const handleBlur = (e: React.FocusEvent) => {
-    // 延迟关闭以允许点击选项
-    setTimeout(() => {
-      setOpen(false);
-      setHighlightedIndex(-1);
-    }, 150);
-  };
-
-  return (
-    <div className="relative">
-      <Input
-        className={`text-sm ${isHighlighted ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-        value={inputValue}
-        onChange={(e) => handleInputChange(e.target.value)}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        autoComplete="off"
-      />
-      {open && filteredCourses.length > 0 && (
-        <div 
-          ref={listRef}
-          className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-auto"
-        >
-          {filteredCourses.map((course, index) => (
-            <div
-              key={course}
-              className={`px-3 py-2 cursor-pointer text-sm ${
-                index === highlightedIndex 
-                  ? 'bg-accent text-accent-foreground' 
-                  : 'hover:bg-accent/50'
-              }`}
-              onMouseDown={(e) => {
-                e.preventDefault(); // 防止失去焦点
-                handleSelect(course);
-              }}
-              onMouseEnter={() => setHighlightedIndex(index)}
-            >
-              {course}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// 学院多选组件
-function CollegeMultiSelect({
-  selectedColleges,
-  onCollegesChange,
-}: {
-  selectedColleges: string[];
-  onCollegesChange: (colleges: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const handleSelect = (college: string) => {
-    if (selectedColleges.includes(college)) {
-      onCollegesChange(selectedColleges.filter((c) => c !== college));
-    } else {
-      onCollegesChange([...selectedColleges, college]);
-    }
-  };
-
-  const handleRemove = (college: string) => {
-    onCollegesChange(selectedColleges.filter((c) => c !== college));
-  };
-
-  return (
-    <div className="space-y-2" data-testid="college-multiselect">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-          >
-            {selectedColleges.length === 0
-              ? "选择学院..."
-              : `已选择 ${selectedColleges.length} 个学院`}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-          <Command>
-            <CommandInput placeholder="搜索学院..." />
-            <CommandList>
-              <CommandEmpty>未找到学院</CommandEmpty>
-              <CommandGroup className="max-h-64 overflow-auto">
-                {COLLEGES.map((college) => (
-                  <CommandItem
-                    key={college}
-                    value={college}
-                    onSelect={() => handleSelect(college)}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedColleges.includes(college)
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {college}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-
-      {selectedColleges.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {selectedColleges.map((college) => (
-            <Badge
-              key={college}
-              variant="secondary"
-              className="flex items-center gap-1"
-            >
-              {college}
-              <X
-                className="h-3 w-3 cursor-pointer"
-                onClick={() => handleRemove(college)}
-              />
-            </Badge>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// 键盘导航复选框组件
-function CheckboxGroup({
-  options,
-  selectedValues,
-  onChange,
-  isHighlighted = false,
-}: {
-  options: string[];
-  selectedValues: string[];
-  onChange: (values: string[]) => void;
-  isHighlighted?: boolean;
-}) {
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setFocusedIndex(prev => (prev + 1) % options.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setFocusedIndex(prev => prev <= 0 ? options.length - 1 : prev - 1);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      if (focusedIndex >= 0) {
-        toggleOption(options[focusedIndex]);
-      }
-    }
-  };
-
-  const toggleOption = (option: string) => {
-    if (selectedValues.includes(option)) {
-      onChange(selectedValues.filter(v => v !== option));
-    } else {
-      onChange([...selectedValues, option]);
-    }
-  };
-
-  const handleFocus = () => {
-    if (focusedIndex === -1) {
-      setFocusedIndex(0);
-    }
-  };
-
-  const handleBlur = (e: React.FocusEvent) => {
-    // 只有当焦点完全离开容器时才重置
-    if (!containerRef.current?.contains(e.relatedTarget)) {
-      setFocusedIndex(-1);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    // 鼠标移出时取消高亮
-    setFocusedIndex(-1);
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      className={`space-y-2 ${isHighlighted ? 'p-2 border border-red-500 rounded-md' : ''}`}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onMouseLeave={handleMouseLeave}
-      role="group"
-      aria-label="复选框组"
-    >
-      {options.map((option, index) => (
-        <div
-          key={option}
-          className={`text-sm flex items-center space-x-2 p-1 rounded cursor-pointer ${
-            focusedIndex === index ? 'bg-accent' : ''
-          }`}
-          onClick={(e) => {
-            e.preventDefault();
-            setFocusedIndex(index);
-            toggleOption(option);
-          }}
-          onMouseEnter={() => setFocusedIndex(index)}
-        >
-          <Checkbox
-            id={`checkbox-${option}`}
-            checked={selectedValues.includes(option)}
-            onCheckedChange={() => {
-              toggleOption(option);
-            }}
-            tabIndex={-1} // 让容器处理焦点
-          />
-          <span className="cursor-pointer flex-1 select-none">
-            {option}
-          </span>
-        </div>
-      ))}
     </div>
   );
 }

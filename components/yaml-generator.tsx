@@ -31,6 +31,10 @@ import {
   ClipboardList,
   Plus,
   Trash2,
+  RotateCcw,
+  Copy,
+  HelpCircle,
+  Keyboard,
 } from "lucide-react";
 import {
   Command,
@@ -45,6 +49,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -181,15 +192,17 @@ export default function YamlGenerator() {
 
   // 从URL中提取MD5
   const extractMD5FromURL = (url: string): string => {
-    const match = url.match(/\/files\/([a-f0-9]{32})\./i);
+    const urlPattern = /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
+    const match = url.match(urlPattern);
     return match ? match[1] : "";
   };
 
   // 从URL中提取文件格式
   const extractFileTypeFromURL = (url: string, fileType: FileType): string => {
-    const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+    const urlPattern = /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
+    const match = url.match(urlPattern);
     if (match) {
-      const extension = match[1].toLowerCase();
+      const extension = match[2].toLowerCase();
       
       // 只有doc类型允许使用zip格式
       if (fileType === 'doc') {
@@ -214,38 +227,79 @@ export default function YamlGenerator() {
     return 'pdf'; // 默认返回pdf
   };
 
-  // 验证MD5格式是否正确
-  const validateMD5Format = (url: string): { isValid: boolean; error?: string } => {
+  // 验证URL格式是否正确
+  const validateURLFormat = (url: string): { isValid: boolean; error?: string } => {
     if (!url.trim()) {
       return { isValid: true }; // 空URL不验证
     }
 
-    // 检查URL是否包含/files/路径
-    if (!url.includes('/files/')) {
-      return { isValid: false, error: "URL格式不正确，应包含 '/files/' 路径" };
+    // 检查基本URL格式
+    if (!url.startsWith('https://byrdocs.org/files/')) {
+      return { 
+        isValid: false, 
+        error: "URL必须以 https://byrdocs.org/files/ 开头" 
+      };
     }
 
-    // 提取MD5部分
-    const md5Match = url.match(/\/files\/([a-f0-9]+)\./i);
-    if (!md5Match) {
-      return { isValid: false, error: "无法从URL中提取MD5哈希值" };
-    }
-
-    const md5 = md5Match[1];
+    // 提取文件部分
+    const filePart = url.replace('https://byrdocs.org/files/', '');
     
-    // 验证MD5格式：必须是32位十六进制字符
-    if (!/^[a-f0-9]{32}$/i.test(md5)) {
-      if (md5.length !== 32) {
-        return { 
-          isValid: false, 
-          error: `MD5哈希值长度不正确，应为32位，当前为${md5.length}位` 
-        };
-      } else {
-        return { 
-          isValid: false, 
-          error: "MD5哈希值格式不正确，只能包含0-9和a-f字符" 
-        };
-      }
+    // 检查是否包含文件扩展名
+    const dotIndex = filePart.lastIndexOf('.');
+    if (dotIndex === -1) {
+      return { 
+        isValid: false, 
+        error: "URL中缺少文件扩展名，格式应为：https://byrdocs.org/files/[MD5].[扩展名]" 
+      };
+    }
+
+    const md5Part = filePart.substring(0, dotIndex);
+    const extensionPart = filePart.substring(dotIndex + 1);
+
+    // 验证MD5部分
+    if (!md5Part) {
+      return { 
+        isValid: false, 
+        error: "URL中缺少MD5哈希值" 
+      };
+    }
+
+    if (md5Part.length !== 32) {
+      return { 
+        isValid: false, 
+        error: `MD5 哈希值长度不正确，应为 32 位，当前为 ${md5Part.length} 位` 
+      };
+    }
+
+    if (!/^[a-f0-9]+$/i.test(md5Part)) {
+      return { 
+        isValid: false, 
+        error: "MD5哈希值格式不正确，只能包含 0-9 和 a-f 字符" 
+      };
+    }
+
+    // 验证文件扩展名部分
+    if (!extensionPart) {
+      return { 
+        isValid: false, 
+        error: "URL中缺少文件扩展名" 
+      };
+    }
+
+    if (!/^[a-zA-Z0-9]+$/.test(extensionPart)) {
+      return { 
+        isValid: false, 
+        error: "文件扩展名格式不正确，只能包含字母和数字" 
+      };
+    }
+
+    // 检查是否有额外的路径或参数
+    const fullPattern = /^https:\/\/byrdocs\.org\/files\/[a-f0-9]{32}\.[a-zA-Z0-9]+$/i;
+    if (!fullPattern.test(url)) {
+      return { 
+        isValid: false, 
+        error: "URL格式不正确，不能包含额外的路径或参数" 
+      };
     }
 
     return { isValid: true };
@@ -257,18 +311,19 @@ export default function YamlGenerator() {
       return { isValid: true }; // 空URL不验证
     }
 
-    // 首先验证MD5格式
-    const md5Validation = validateMD5Format(url);
-    if (!md5Validation.isValid) {
-      return md5Validation;
+    // 首先验证URL格式
+    const urlFormatValidation = validateURLFormat(url);
+    if (!urlFormatValidation.isValid) {
+      return urlFormatValidation;
     }
 
-    const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+    const urlPattern = /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
+    const match = url.match(urlPattern);
     if (!match) {
       return { isValid: false, error: "无法从URL中检测到文件扩展名" };
     }
 
-    const extension = match[1].toLowerCase();
+    const extension = match[2].toLowerCase();
     
     // 定义允许的扩展名
     const allowedExtensions = {
@@ -364,6 +419,12 @@ export default function YamlGenerator() {
   const [step, setStep] = useState(1);
   const [fileType, setFileType] = useState<FileType>("book");
   const [urlValidationError, setUrlValidationError] = useState<string>("");
+  const [hasDownloaded, setHasDownloaded] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
+  const [selectedTypeIndex, setSelectedTypeIndex] = useState(0); // 用于键盘选择文件类型
+  const [previousStep, setPreviousStep] = useState(1); // 跟踪上一个步骤
+  const [showShortcuts, setShowShortcuts] = useState(false); // 快捷键帮助弹窗
   const [formData, setFormData] = useState<FormData>({
     id: "",
     url: "",
@@ -495,14 +556,44 @@ export default function YamlGenerator() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    // 设置已下载状态
+    setHasDownloaded(true);
+  };
+
+  const createNewMetadata = () => {
+    // 重置所有状态
+    setStep(1);
+    setHasDownloaded(false);
+    setUrlValidationError("");
+    resetForm("book");
+  };
+
+  const copyYamlToClipboard = async () => {
+    try {
+      const yamlContent = generateYaml();
+      await navigator.clipboard.writeText(yamlContent);
+      setIsCopied(true);
+      
+      // 2秒后重置复制状态
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy YAML content:', err);
+    }
   };
 
   const addArrayItem = (field: string, subField?: string) => {
     setFormData((prev) => {
+      let newData;
+      let newIndex;
+      
       if (subField) {
         // @ts-ignore
         const currentArray = prev.data[field][subField];
-        return {
+        newIndex = currentArray.length;
+        newData = {
           ...prev,
           data: {
             ...prev.data,
@@ -516,7 +607,8 @@ export default function YamlGenerator() {
       } else {
         // @ts-ignore
         const currentArray = prev.data[field];
-        return {
+        newIndex = currentArray.length;
+        newData = {
           ...prev,
           data: {
             ...prev.data,
@@ -524,6 +616,17 @@ export default function YamlGenerator() {
           }
         };
       }
+      
+      // 延迟聚焦到新添加的输入框
+      setTimeout(() => {
+        const inputId = `${field}-${newIndex}`;
+        const inputElement = document.getElementById(inputId);
+        if (inputElement) {
+          inputElement.focus();
+        }
+      }, 100);
+      
+      return newData;
     });
   };
 
@@ -597,6 +700,10 @@ export default function YamlGenerator() {
   const resetForm = (type: FileType) => {
     setFileType(type);
     setUrlValidationError(""); // 清除验证错误
+    
+    // 同步键盘选择索引
+    const typeIndex = type === "book" ? 0 : type === "test" ? 1 : 2;
+    setSelectedTypeIndex(typeIndex);
     let initialData: BookData | TestData | DocData;
 
     if (type === "book") {
@@ -685,6 +792,291 @@ export default function YamlGenerator() {
     return false;
   };
 
+  // 获取验证错误信息
+  const getValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    
+    if (fileType === "book") {
+      const data = formData.data as BookData;
+      
+      if (!data.title) {
+        errors.push("书名");
+      }
+      
+      if (!data.authors.some((a) => a.trim())) {
+        errors.push("作者");
+      }
+      
+      const hasValidISBN = data.isbn.some(
+        (isbn) => isbn.trim() && validateISBN(isbn)
+      );
+      if (!hasValidISBN) {
+        errors.push("有效的ISBN");
+      }
+      
+      if (data.publish_year && !validateYear(data.publish_year)) {
+        errors.push("有效的出版年份");
+      }
+    } else if (fileType === "test") {
+      const data = formData.data as TestData;
+      
+      if (!data.course.name) {
+        errors.push("课程名称");
+      }
+      
+      if (data.content.length === 0) {
+        errors.push("内容类型");
+      }
+      
+      const yearValidation = validateYearRange(data.time.start, data.time.end);
+      if (!yearValidation.isValid) {
+        errors.push("有效的年份范围");
+      }
+    } else if (fileType === "doc") {
+      const data = formData.data as DocData;
+      
+      if (!data.title) {
+        errors.push("标题");
+      }
+      
+      if (!data.course.every((c) => c.name.trim())) {
+        errors.push("课程名称");
+      }
+      
+      if (data.content.length === 0) {
+        errors.push("内容类型");
+      }
+    }
+    
+    return errors;
+  };
+
+  // 获取需要高亮的字段ID
+  const getHighlightedFieldIds = (): string[] => {
+    const fieldIds: string[] = [];
+    
+    if (fileType === "book") {
+      const data = formData.data as BookData;
+      
+      if (!data.title) {
+        fieldIds.push("book-title");
+      }
+      
+      if (!data.authors.some((a) => a.trim())) {
+        fieldIds.push("book-authors");
+      }
+      
+      const hasValidISBN = data.isbn.some(
+        (isbn) => isbn.trim() && validateISBN(isbn)
+      );
+      if (!hasValidISBN) {
+        fieldIds.push("book-isbn");
+      }
+      
+      if (data.publish_year && !validateYear(data.publish_year)) {
+        fieldIds.push("book-publish-year");
+      }
+    } else if (fileType === "test") {
+      const data = formData.data as TestData;
+      
+      if (!data.course.name) {
+        fieldIds.push("test-course-name");
+      }
+      
+      if (data.content.length === 0) {
+        fieldIds.push("test-content");
+      }
+      
+      const yearValidation = validateYearRange(data.time.start, data.time.end);
+      if (!yearValidation.isValid) {
+        fieldIds.push("test-time-range");
+      }
+    } else if (fileType === "doc") {
+      const data = formData.data as DocData;
+      
+      if (!data.title) {
+        fieldIds.push("doc-title");
+      }
+      
+      if (!data.course.every((c) => c.name.trim())) {
+        fieldIds.push("doc-course");
+      }
+      
+      if (data.content.length === 0) {
+        fieldIds.push("doc-content");
+      }
+    }
+    
+    return fieldIds;
+  };
+
+  // 键盘快捷键处理
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检测操作系统并使用相应的修饰键
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      // 全局页面切换快捷键 (Cmd/Ctrl + 左/右箭头，第三页使用 Cmd/Ctrl + >)
+      if (cmdOrCtrl && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        
+        if (e.key === 'ArrowLeft' && step > 1) {
+          // 向前翻页（不触发自动focus）
+          const newStep = step - 1;
+          setPreviousStep(step); // 设置为当前步骤，这样不会触发自动focus
+          setStep(newStep);
+        } else if ((e.key === 'ArrowRight' && step <= 3)) {
+          // 向后翻页，需要验证当前页面
+          if (step === 1) {
+            // 使用当前选中的类型
+            const fileTypes: FileType[] = ['book', 'test', 'doc'];
+            resetForm(fileTypes[selectedTypeIndex]);
+            setStep(2);
+          } else if (step === 2 && validateStep2()) {
+            setStep(3);
+          } else if (step === 3 && validateStep3()) {
+            setHighlightedFields([]);
+            setStep(4);
+          } else if (step === 3) {
+            // 第三页验证失败时，高亮未填项并focus第一个
+            const highlightIds = getHighlightedFieldIds();
+            setHighlightedFields(highlightIds);
+            if (highlightIds.length > 0) {
+              setTimeout(() => {
+                const firstHighlightedElement = document.getElementById(highlightIds[0]);
+                if (firstHighlightedElement) {
+                  firstHighlightedElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                  });
+                  // 如果是输入框，则focus它
+                  if (firstHighlightedElement instanceof HTMLInputElement || 
+                      firstHighlightedElement instanceof HTMLTextAreaElement) {
+                    firstHighlightedElement.focus();
+                  } else {
+                    // 如果是其他元素，尝试找到其中的输入框
+                    const inputElement = firstHighlightedElement.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+                    if (inputElement) {
+                      inputElement.focus();
+                    }
+                  }
+                }
+              }, 100);
+            }
+          }
+        } else if (e.key === 'ArrowRight' && step === 4) {
+          // 第四页不能再向前了，忽略
+        }
+        return;
+      }
+
+      // 检查是否在特殊组件中（下拉框、弹窗等），如果是则不处理全局快捷键
+      const isInSpecialComponent = (
+        e.target instanceof HTMLButtonElement ||
+        (e.target as Element)?.closest('[role="combobox"]') ||
+        (e.target as Element)?.closest('[role="listbox"]') ||
+        (e.target as Element)?.closest('[role="option"]') ||
+        (e.target as Element)?.closest('[data-radix-popper-content-wrapper]') ||
+        (e.target as Element)?.closest('[cmdk-root]') ||
+        (e.target as Element)?.closest('.popover-content')
+      );
+
+      // 如果用户正在输入框中输入，处理特定的快捷键
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // 第二页：URL输入框回车进入下一步
+        if (step === 2 && e.key === 'Enter') {
+          e.preventDefault();
+          if (validateStep2()) {
+            setStep(3);
+          }
+          return;
+        }
+
+        // 第四页：按回车下载文件或创建新的元信息
+        if (step === 4 && e.key === 'Enter') {
+          e.preventDefault();
+          if (!hasDownloaded) {
+            downloadYaml();
+          } else {
+            createNewMetadata();
+          }
+          return;
+        }
+        
+        // 对于输入框，只阻止 Enter 键，其他全局快捷键仍然有效
+        if (e.key === 'Enter') {
+          return;
+        }
+      }
+
+      // 第一页：方向键选择文件类型
+      if (step === 1) {
+        const fileTypes: FileType[] = ['book', 'test', 'doc'];
+        
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedTypeIndex(prev => prev > 0 ? prev - 1 : fileTypes.length - 1);
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedTypeIndex(prev => prev < fileTypes.length - 1 ? prev + 1 : 0);
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          resetForm(fileTypes[selectedTypeIndex]);
+          setStep(2);
+        }
+      }
+
+
+
+      // 第四页：按回车下载文件或创建新的元信息（但不在特殊组件中时）
+      if (step === 4 && e.key === 'Enter' && !isInSpecialComponent) {
+        if (!hasDownloaded) {
+          downloadYaml();
+        } else {
+          createNewMetadata();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [step, selectedTypeIndex, validateStep2, validateStep3, getHighlightedFieldIds, resetForm, setHighlightedFields, setStep, downloadYaml, createNewMetadata, hasDownloaded]);
+
+  // 处理步骤变化和自动focus
+  useEffect(() => {
+    // 只有当步骤向前进时才自动focus（进入新页面）
+    if (step > previousStep) {
+      setTimeout(() => {
+        let elementToFocus: HTMLElement | null = null;
+        
+        if (step === 2) {
+          // 第二页：focus URL输入框
+          elementToFocus = document.getElementById('url');
+        } else if (step === 3) {
+          // 第三页：根据文件类型focus第一个输入框
+          if (fileType === 'book') {
+            elementToFocus = document.getElementById('title');
+          } else if (fileType === 'test') {
+            // 试题页面：focus到学院下拉框（但不触发下拉）
+            const collegeMultiSelect = document.querySelector('[data-testid="college-multiselect"] [role="combobox"]') as HTMLElement;
+            if (collegeMultiSelect) {
+              elementToFocus = collegeMultiSelect;
+            }
+          } else if (fileType === 'doc') {
+            elementToFocus = document.getElementById('doc-title');
+          }
+        }
+        
+        if (elementToFocus) {
+          elementToFocus.focus();
+        }
+      }, 100); // 延迟一点确保DOM已更新
+    }
+    
+    setPreviousStep(step);
+  }, [step, previousStep, fileType]);
+
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="text-center space-y-2">
@@ -697,9 +1089,12 @@ export default function YamlGenerator() {
       <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <Card
           className={`cursor-pointer transition-all hover:shadow-md ${
-            fileType === "book" ? "ring-2 ring-primary" : ""
+            selectedTypeIndex === 0 ? "ring-2 ring-primary" : ""
           }`}
-          onClick={() => resetForm("book")}
+          onClick={() => {
+            setSelectedTypeIndex(0);
+            resetForm("book");
+          }}
         >
           <CardHeader className="text-center pb-3 sm:pb-6">
             <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-blue-500 dark:text-blue-400" />
@@ -723,9 +1118,12 @@ export default function YamlGenerator() {
 
         <Card
           className={`cursor-pointer transition-all hover:shadow-md ${
-            fileType === "test" ? "ring-2 ring-primary" : ""
+            selectedTypeIndex === 1 ? "ring-2 ring-primary" : ""
           }`}
-          onClick={() => resetForm("test")}
+          onClick={() => {
+            setSelectedTypeIndex(1);
+            resetForm("test");
+          }}
         >
           <CardHeader className="text-center pb-3 sm:pb-6">
             <ClipboardList className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-green-500 dark:text-green-400" />
@@ -749,9 +1147,12 @@ export default function YamlGenerator() {
 
         <Card
           className={`cursor-pointer transition-all hover:shadow-md ${
-            fileType === "doc" ? "ring-2 ring-primary" : ""
+            selectedTypeIndex === 2 ? "ring-2 ring-primary" : ""
           }`}
-          onClick={() => resetForm("doc")}
+          onClick={() => {
+            setSelectedTypeIndex(2);
+            resetForm("doc");
+          }}
         >
           <CardHeader className="text-center pb-3 sm:pb-6">
             <FileText className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-purple-500 dark:text-purple-400" />
@@ -774,8 +1175,12 @@ export default function YamlGenerator() {
         </Card>
       </div>
 
-      <div className="flex justify-center">
-        <Button onClick={() => setStep(2)} size="lg">
+      <div className="flex flex-col items-center space-y-2">
+        <Button onClick={() => {
+          const fileTypes: FileType[] = ['book', 'test', 'doc'];
+          resetForm(fileTypes[selectedTypeIndex]);
+          setStep(2);
+        }} size="lg">
           下一步：填写基本信息
         </Button>
       </div>
@@ -834,7 +1239,10 @@ export default function YamlGenerator() {
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(1)}>
+        <Button variant="outline" onClick={() => {
+          setPreviousStep(step); // 防止触发自动focus
+          setStep(1);
+        }}>
           上一步
         </Button>
         <Button onClick={() => setStep(3)} disabled={!validateStep2()}>
@@ -848,36 +1256,45 @@ export default function YamlGenerator() {
     const data = formData.data as BookData;
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-2" id="book-title">
           <Label htmlFor="title">书名 *</Label>
           <Input
             id="title"
-            className="text-sm"
+            className={`text-sm ${highlightedFields.includes('book-title') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
             placeholder="例如：理论物理学教程 第10卷 物理动理学 第2版"
             value={data.title}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData((prev) => ({
                 ...prev,
                 data: { ...prev.data, title: e.target.value } as BookData,
-              }))
-            }
+              }));
+              // 清除高亮
+              if (highlightedFields.includes('book-title')) {
+                setHighlightedFields(prev => prev.filter(field => field !== 'book-title'));
+              }
+            }}
           />
           <p className="text-xs text-muted-foreground">
             需与原书保持一致，中文书使用中文书名
           </p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2" id="book-authors">
           <Label>作者 *</Label>
           {data.authors.map((author, index) => (
             <div key={index} className="flex gap-2">
               <Input
-                className="text-sm"
+                id={`authors-${index}`}
+                className={`text-sm ${highlightedFields.includes('book-authors') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                 placeholder="例如：Лифшиц, Евгений Михайлович(粟弗席兹)"
                 value={author}
-                onChange={(e) =>
-                  updateArrayItem("authors", index, e.target.value)
-                }
+                onChange={(e) => {
+                  updateArrayItem("authors", index, e.target.value);
+                  // 清除高亮
+                  if (highlightedFields.includes('book-authors')) {
+                    setHighlightedFields(prev => prev.filter(field => field !== 'book-authors'));
+                  }
+                }}
               />
               {data.authors.length > 1 && (
                 <Button
@@ -921,6 +1338,7 @@ export default function YamlGenerator() {
               {data.translators.map((translator, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
+                    id={`translators-${index}`}
                     className="text-sm"
                     placeholder="例如：徐锡申"
                     value={translator}
@@ -984,26 +1402,34 @@ export default function YamlGenerator() {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2" id="book-publish-year">
             <Label htmlFor="publish_year">出版年份</Label>
             <Input
               id="publish_year" 
-              className={`text-sm ${data.publish_year && !validateYear(data.publish_year) ? "border-red-500" : ""}`}
+              className={`text-sm ${
+                (data.publish_year && !validateYear(data.publish_year)) || 
+                highlightedFields.includes('book-publish-year') 
+                ? "border-red-500 ring-1 ring-red-500" : ""
+              }`}
               type="number"
               step="1"
               min="1"
               max={new Date().getFullYear()}
               placeholder="例如：2008"
               value={data.publish_year}
-              onChange={(e) =>
+              onChange={(e) => {
                 setFormData((prev) => ({
                   ...prev,
                   data: {
                     ...prev.data,
                     publish_year: e.target.value,
                   } as BookData,
-                }))
-              }
+                }));
+                // 清除高亮
+                if (highlightedFields.includes('book-publish-year')) {
+                  setHighlightedFields(prev => prev.filter(field => field !== 'book-publish-year'));
+                }
+              }}
             />
             {data.publish_year && !validateYear(data.publish_year) && (
               <p className="text-xs text-red-500">
@@ -1013,17 +1439,23 @@ export default function YamlGenerator() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2" id="book-isbn">
           <Label>ISBN *</Label>
           {data.isbn.map((isbn, index) => (
             <div key={index} className="space-y-1">
               <div className="flex gap-2">
                 <Input
+                  id={`isbn-${index}`}
                   placeholder="例如：978-7-04-023069-7"
                   value={isbn}
                   onChange={(e) => {
                     const value = e.target.value;
                     updateArrayItem("isbn", index, value);
+
+                    // 清除高亮
+                    if (highlightedFields.includes('book-isbn')) {
+                      setHighlightedFields(prev => prev.filter(field => field !== 'book-isbn'));
+                    }
 
                     // 如果输入完成且格式正确，自动格式化
                     if (validateISBN(value)) {
@@ -1046,7 +1478,11 @@ export default function YamlGenerator() {
                       }
                     }
                   }}
-                  className={`text-sm ${isbn && !validateISBN(isbn) ? "border-red-500" : ""}`}
+                  className={`text-sm ${
+                    (isbn && !validateISBN(isbn)) || 
+                    highlightedFields.includes('book-isbn') 
+                    ? "border-red-500 ring-1 ring-red-500" : ""
+                  }`}
                 />
                 {data.isbn.length > 1 && (
                   <Button
@@ -1103,7 +1539,7 @@ export default function YamlGenerator() {
         </div>
 
         <div className="space-y-4">
-          <Label>课程信息 *</Label>
+          <Label>课程信息</Label>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="course-type">课程类型</Label>
@@ -1154,11 +1590,11 @@ export default function YamlGenerator() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" id="test-course-name">
               <Label htmlFor="course-name">课程名称 *</Label>
               <CourseNameInput
                 value={data.course.name}
-                onChange={(value) =>
+                onChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
                     data: {
@@ -1168,30 +1604,39 @@ export default function YamlGenerator() {
                         name: value,
                       },
                     } as TestData,
-                  }))
-                }
+                  }));
+                  // 清除高亮
+                  if (highlightedFields.includes('test-course-name')) {
+                    setHighlightedFields(prev => prev.filter(field => field !== 'test-course-name'));
+                  }
+                }}
                 courseList={courseList}
                 placeholder="例如：概率论与数理统计"
+                isHighlighted={highlightedFields.includes('test-course-name')}
               />
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4" id="test-time-range">
           <Label>时间信息 *</Label>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="start-year">开始年份</Label>
               <Input
                 id="start-year"
-                className={`text-sm ${data.time.start && !validateYear(data.time.start) ? "border-red-500" : ""}`}
+                className={`text-sm ${
+                  (data.time.start && !validateYear(data.time.start)) || 
+                  highlightedFields.includes('test-time-range') 
+                  ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 type="number"
                 step="1"
                 min="2000"
                 max={new Date().getFullYear()}
                 placeholder="例如：2023"
                 value={data.time.start}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     data: {
@@ -1201,8 +1646,12 @@ export default function YamlGenerator() {
                         start: e.target.value,
                       },
                     } as TestData,
-                  }))
-                }
+                  }));
+                  // 清除高亮
+                  if (highlightedFields.includes('test-time-range')) {
+                    setHighlightedFields(prev => prev.filter(field => field !== 'test-time-range'));
+                  }
+                }}
               />
             </div>
 
@@ -1210,14 +1659,18 @@ export default function YamlGenerator() {
               <Label htmlFor="end-year">结束年份</Label>
               <Input
                 id="end-year"
-                className={`text-sm ${data.time.end && !validateYear(data.time.end) ? "border-red-500" : ""}`}
+                className={`text-sm ${
+                  (data.time.end && !validateYear(data.time.end)) || 
+                  highlightedFields.includes('test-time-range') 
+                  ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 type="number"
                 step="1"
                 min="2000"
                 max={new Date().getFullYear()}
                 placeholder="例如：2024"
                 value={data.time.end}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     data: {
@@ -1227,8 +1680,12 @@ export default function YamlGenerator() {
                         end: e.target.value,
                       },
                     } as TestData,
-                  }))
-                }
+                  }));
+                  // 清除高亮
+                  if (highlightedFields.includes('test-time-range')) {
+                    setHighlightedFields(prev => prev.filter(field => field !== 'test-time-range'));
+                  }
+                }}
               />
             </div>
             
@@ -1335,43 +1792,26 @@ export default function YamlGenerator() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2" id="test-content">
           <Label>内容类型 *</Label>
-          <div className="space-y-2">
-            {["原题", "答案"].map((contentType) => (
-              <div key={contentType} className="flex items-center space-x-2">
-                <Checkbox
-                  id={contentType}
-                  checked={data.content.includes(contentType)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          content: [
-                            ...(prev.data as TestData).content,
-                            contentType,
-                          ],
-                        } as TestData,
-                      }));
-                    } else {
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          content: (prev.data as TestData).content.filter(
-                            (c) => c !== contentType
-                          ),
-                        } as TestData,
-                      }));
-                    }
-                  }}
-                />
-                <Label htmlFor={contentType}>{contentType}</Label>
-              </div>
-            ))}
-          </div>
+          <CheckboxGroup
+            options={["原题", "答案"]}
+            selectedValues={data.content}
+            onChange={(newContent: string[]) => {
+              setFormData((prev) => ({
+                ...prev,
+                data: {
+                  ...prev.data,
+                  content: newContent,
+                } as TestData,
+              }));
+              // 清除高亮
+              if (highlightedFields.includes('test-content')) {
+                setHighlightedFields(prev => prev.filter(field => field !== 'test-content'));
+              }
+            }}
+            isHighlighted={highlightedFields.includes('test-content')}
+          />
           <p className="text-xs text-muted-foreground">至少选择一项</p>
         </div>
       </div>
@@ -1382,19 +1822,23 @@ export default function YamlGenerator() {
     const data = formData.data as DocData;
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-2" id="doc-title-div">
           <Label htmlFor="doc-title">资料标题 *</Label>
           <Input
             id="doc-title"
-            className="text-sm"
+            className={`text-sm ${highlightedFields.includes('doc-title') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
             placeholder="例如：工程制图习题解答"
             value={data.title}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData((prev) => ({
                 ...prev,
                 data: { ...prev.data, title: e.target.value } as DocData,
-              }))
-            }
+              }));
+              // 清除高亮
+              if (highlightedFields.includes('doc-title')) {
+                setHighlightedFields(prev => prev.filter(field => field !== 'doc-title'));
+              }
+            }}
           />
           <p className="text-xs text-muted-foreground">
             请自行总结一个合适的标题
@@ -1403,11 +1847,11 @@ export default function YamlGenerator() {
 
 
 
-        <div className="space-y-2">
+        <div className="space-y-2" id="doc-course">
           <Label>课程信息 *</Label>
           <div className="space-y-4">
             {data.course.map((course, index) => (
-              <Card key={index} className="p-4">
+              <Card key={index} className="p-4" data-course-index={index}>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium">课程 {index + 1}</h4>
@@ -1484,7 +1928,7 @@ export default function YamlGenerator() {
                       <Label>课程名称 *</Label>
                       <CourseNameInput
                         value={course.name}
-                        onChange={(value) =>
+                        onChange={(value) => {
                           setFormData((prev) => ({
                             ...prev,
                             data: {
@@ -1493,10 +1937,15 @@ export default function YamlGenerator() {
                                 i === index ? { ...c, name: value } : c
                               ),
                             } as DocData,
-                          }))
-                        }
+                          }));
+                          // 清除高亮
+                          if (highlightedFields.includes('doc-course')) {
+                            setHighlightedFields(prev => prev.filter(field => field !== 'doc-course'));
+                          }
+                        }}
                         courseList={courseList}
                         placeholder="例如：工程图学"
+                        isHighlighted={highlightedFields.includes('doc-course')}
                       />
                     </div>
                   </div>
@@ -1507,18 +1956,31 @@ export default function YamlGenerator() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              setFormData((prev) => ({
-                ...prev,
-                data: {
-                  ...prev.data,
-                  course: [
-                    ...(prev.data as DocData).course,
-                    { type: "", name: "" },
-                  ],
-                } as DocData,
-              }))
-            }
+            onClick={() => {
+              setFormData((prev) => {
+                const currentCourses = (prev.data as DocData).course;
+                const newIndex = currentCourses.length;
+                
+                // 延迟聚焦到新课程的课程类型下拉框
+                setTimeout(() => {
+                  const selectElement = document.querySelector(`[data-course-index="${newIndex}"] [role="combobox"]`) as HTMLElement;
+                  if (selectElement) {
+                    selectElement.focus();
+                  }
+                }, 100);
+                
+                return {
+                  ...prev,
+                  data: {
+                    ...prev.data,
+                    course: [
+                      ...currentCourses,
+                      { type: "", name: "" },
+                    ],
+                  } as DocData,
+                };
+              });
+            }}
             className="w-full"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -1526,45 +1988,26 @@ export default function YamlGenerator() {
           </Button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2" id="doc-content">
           <Label>内容类型 *</Label>
-          <div className="space-y-2">
-            {["思维导图", "题库", "答案", "知识点", "课件"].map(
-              (contentType) => (
-                <div key={contentType} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={contentType}
-                    checked={data.content.includes(contentType)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          data: {
-                            ...prev.data,
-                            content: [
-                              ...(prev.data as DocData).content,
-                              contentType,
-                            ],
-                          } as DocData,
-                        }));
-                      } else {
-                        setFormData((prev) => ({
-                          ...prev,
-                          data: {
-                            ...prev.data,
-                            content: (prev.data as DocData).content.filter(
-                              (c) => c !== contentType
-                            ),
-                          } as DocData,
-                        }));
-                      }
-                    }}
-                  />
-                  <Label htmlFor={contentType}>{contentType}</Label>
-                </div>
-              )
-            )}
-          </div>
+          <CheckboxGroup
+            options={["思维导图", "题库", "答案", "知识点", "课件"]}
+            selectedValues={data.content}
+            onChange={(newContent: string[]) => {
+              setFormData((prev) => ({
+                ...prev,
+                data: {
+                  ...prev.data,
+                  content: newContent,
+                } as DocData,
+              }));
+              // 清除高亮
+              if (highlightedFields.includes('doc-content')) {
+                setHighlightedFields(prev => prev.filter(field => field !== 'doc-content'));
+              }
+            }}
+            isHighlighted={highlightedFields.includes('doc-content')}
+          />
           <p className="text-xs text-muted-foreground">至少选择一项</p>
         </div>
       </div>
@@ -1589,13 +2032,51 @@ export default function YamlGenerator() {
       {fileType === "test" && renderTestForm()}
       {fileType === "doc" && renderDocForm()}
 
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(2)}>
-          上一步
-        </Button>
-        <Button onClick={() => setStep(4)} disabled={!validateStep3()}>
-          下一步：预览和下载
-        </Button>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex justify-between">
+                      <Button variant="outline" onClick={() => {
+            setPreviousStep(step); // 防止触发自动focus
+            setStep(2);
+          }}>
+            上一步
+          </Button>
+            <Button onClick={() => {
+              if (validateStep3()) {
+                setHighlightedFields([]);
+                setStep(4);
+              } else {
+                const highlightIds = getHighlightedFieldIds();
+                setHighlightedFields(highlightIds);
+                // 滚动到第一个高亮字段并聚焦
+                if (highlightIds.length > 0) {
+                  setTimeout(() => {
+                    const firstHighlightedElement = document.getElementById(highlightIds[0]);
+                    if (firstHighlightedElement) {
+                      firstHighlightedElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                      });
+                      // 如果是输入框，则focus它
+                      if (firstHighlightedElement instanceof HTMLInputElement || 
+                          firstHighlightedElement instanceof HTMLTextAreaElement) {
+                        firstHighlightedElement.focus();
+                      } else {
+                        // 如果是其他元素，尝试找到其中的输入框
+                        const inputElement = firstHighlightedElement.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+                        if (inputElement) {
+                          inputElement.focus();
+                        }
+                      }
+                    }
+                  }, 100);
+                }
+              }
+            }}>
+              下一步：预览和下载
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1613,27 +2094,75 @@ export default function YamlGenerator() {
               __html: hljs.highlight(generateYaml(), { language: 'yaml' }).value
             }}
           /> */}
-      <div className={`p-4 rounded-lg text-sm overflow-x-auto border yaml-highlight ${
-        isDarkMode ? 'yaml-dark' : 'yaml-light'
-      }`}>
-        <pre
-          className="whitespace-pre-wrap m-0"
-          dangerouslySetInnerHTML={{
-            __html: hljs.highlight(generateYaml(), { language: "yaml" }).value,
-          }}
-        />
+      <div className="relative">
+        <div className={`p-4 rounded-lg text-sm overflow-x-auto border yaml-highlight ${
+          isDarkMode ? 'yaml-dark' : 'yaml-light'
+        }`}>
+          <pre
+            className="whitespace-pre-wrap m-0 pr-12"
+            dangerouslySetInnerHTML={{
+              __html: hljs.highlight(generateYaml(), { language: "yaml" }).value,
+            }}
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={copyYamlToClipboard}
+          className="absolute top-2 right-2 h-8 w-8 p-0"
+          title={isCopied ? "已复制!" : "复制YAML内容"}
+        >
+          {isCopied ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </Button>
       </div>
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(3)}>
-          上一步
-        </Button>
-        <Button
-          onClick={downloadYaml}
-          className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
-        >
-          <Download className="w-4 h-4 mr-1" />
-          下载 YAML 文件
-        </Button>
+        {!hasDownloaded ? (
+          <>
+            <Button variant="outline" onClick={() => {
+              setPreviousStep(step); // 防止触发自动focus
+              setStep(3);
+            }}>
+              上一步
+            </Button>
+            <Button
+              onClick={downloadYaml}
+              className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              下载 YAML 文件
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => {
+              setPreviousStep(step); // 防止触发自动focus
+              setStep(3);
+            }}>
+              上一步
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={createNewMetadata}
+                className="flex items-center"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                创建新的元信息
+              </Button>
+              <Button
+                onClick={downloadYaml}
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                重新下载
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1695,7 +2224,16 @@ export default function YamlGenerator() {
           </div>
         </div>
 
-        <Card className="bg-card shadow-lg">
+        <Card className="bg-card shadow-lg relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowShortcuts(true)}
+            className="absolute right-4 top-4 z-10 hidden sm:flex"
+            title="快捷键帮助"
+          >
+            <Keyboard className="w-4 h-4" />
+          </Button>
           <CardContent className="p-8">
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
@@ -1710,6 +2248,97 @@ export default function YamlGenerator() {
           </p>
         </div>
       </div>
+      
+      {/* 快捷键帮助弹窗 */}
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Keyboard className="w-5 h-5" />
+              快捷键说明
+            </DialogTitle>
+            <DialogDescription>
+              当前可用的快捷键操作
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* 全局快捷键 */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">全局快捷键</h3>
+              <div className="grid gap-3">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm">向前翻页</span>
+                  <div className="flex items-center gap-1">
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Cmd/Ctrl</kbd>
+                    <span className="text-xs">+</span>
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">←</kbd>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm">向后翻页</span>
+                  <div className="flex items-center gap-1">
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Cmd/Ctrl</kbd>
+                    <span className="text-xs">+</span>
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">→</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 当前页面快捷键 */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">当前页面快捷键</h3>
+              <div className="grid gap-3">
+                {step === 1 && (
+                  <>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">选择文件类型</span>
+                      <div className="flex items-center gap-1">
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">↑</kbd>
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">↓</kbd>
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">←</kbd>
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">→</kbd>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">确认选择并进入下一步</span>
+                      <div className="flex items-center gap-1">
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
+                        <span className="text-xs">或</span>
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">Space</kbd>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                {step === 2 && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-sm">填写完 URL 后进入下一步</span>
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
+                  </div>
+                )}
+                
+                {step === 3 && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    组合使用 <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>，
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Tab</kbd> 等常用快捷键
+                  </div>
+                )}
+                
+                {step === 4 && (
+                  <>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">{hasDownloaded ? '创建新的元信息' : '下载YAML文件'}</span>
+                      <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1720,11 +2349,13 @@ function CourseNameInput({
   onChange,
   courseList,
   placeholder = "例如：概率论与数理统计",
+  isHighlighted = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   courseList: string[];
   placeholder?: string;
+  isHighlighted?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -1857,7 +2488,7 @@ function CourseNameInput({
   return (
     <div className="relative">
       <Input
-        className="text-sm"
+        className={`text-sm ${isHighlighted ? 'border-red-500 ring-1 ring-red-500' : ''}`}
         value={inputValue}
         onChange={(e) => handleInputChange(e.target.value)}
         onFocus={handleFocus}
@@ -1917,7 +2548,7 @@ function CollegeMultiSelect({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="college-multiselect">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -1978,6 +2609,98 @@ function CollegeMultiSelect({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// 键盘导航复选框组件
+function CheckboxGroup({
+  options,
+  selectedValues,
+  onChange,
+  isHighlighted = false,
+}: {
+  options: string[];
+  selectedValues: string[];
+  onChange: (values: string[]) => void;
+  isHighlighted?: boolean;
+}) {
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex(prev => (prev + 1) % options.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex(prev => prev <= 0 ? options.length - 1 : prev - 1);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (focusedIndex >= 0) {
+        toggleOption(options[focusedIndex]);
+      }
+    }
+  };
+
+  const toggleOption = (option: string) => {
+    if (selectedValues.includes(option)) {
+      onChange(selectedValues.filter(v => v !== option));
+    } else {
+      onChange([...selectedValues, option]);
+    }
+  };
+
+  const handleFocus = () => {
+    if (focusedIndex === -1) {
+      setFocusedIndex(0);
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent) => {
+    // 只有当焦点完全离开容器时才重置
+    if (!containerRef.current?.contains(e.relatedTarget)) {
+      setFocusedIndex(-1);
+    }
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`space-y-2 ${isHighlighted ? 'p-2 border border-red-500 rounded-md' : ''}`}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      role="group"
+      aria-label="复选框组"
+    >
+      {options.map((option, index) => (
+        <div
+          key={option}
+          className={`flex items-center space-x-2 p-1 rounded cursor-pointer ${
+            focusedIndex === index ? 'bg-accent' : ''
+          }`}
+          onClick={() => {
+            setFocusedIndex(index);
+            toggleOption(option);
+          }}
+          onMouseEnter={() => setFocusedIndex(index)}
+        >
+          <Checkbox
+            id={`checkbox-${option}`}
+            checked={selectedValues.includes(option)}
+            onCheckedChange={() => toggleOption(option)}
+            tabIndex={-1} // 让容器处理焦点
+          />
+          <Label 
+            htmlFor={`checkbox-${option}`}
+            className="cursor-pointer flex-1"
+          >
+            {option}
+          </Label>
+        </div>
+      ))}
     </div>
   );
 }

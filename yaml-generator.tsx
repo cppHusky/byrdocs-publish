@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import * as ISBN from "isbn3";
 import hljs from "highlight.js/lib/core";
 import yaml from "highlight.js/lib/languages/yaml";
-import "highlight.js/styles/github.css";
+import * as YAML from "js-yaml";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -119,6 +119,28 @@ const COLLEGES = [
 export default function YamlGenerator() {
   // 课程列表状态
   const [courseList, setCourseList] = useState<string[]>([]);
+  // 主题状态
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // 检测主题变化
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    };
+
+    // 初始检查
+    checkTheme();
+
+    // 监听主题变化
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // 初始化 highlight.js 和获取课程数据
   useEffect(() => {
@@ -192,10 +214,53 @@ export default function YamlGenerator() {
     return 'pdf'; // 默认返回pdf
   };
 
+  // 验证MD5格式是否正确
+  const validateMD5Format = (url: string): { isValid: boolean; error?: string } => {
+    if (!url.trim()) {
+      return { isValid: true }; // 空URL不验证
+    }
+
+    // 检查URL是否包含/files/路径
+    if (!url.includes('/files/')) {
+      return { isValid: false, error: "URL格式不正确，应包含 '/files/' 路径" };
+    }
+
+    // 提取MD5部分
+    const md5Match = url.match(/\/files\/([a-f0-9]+)\./i);
+    if (!md5Match) {
+      return { isValid: false, error: "无法从URL中提取MD5哈希值" };
+    }
+
+    const md5 = md5Match[1];
+    
+    // 验证MD5格式：必须是32位十六进制字符
+    if (!/^[a-f0-9]{32}$/i.test(md5)) {
+      if (md5.length !== 32) {
+        return { 
+          isValid: false, 
+          error: `MD5哈希值长度不正确，应为32位，当前为${md5.length}位` 
+        };
+      } else {
+        return { 
+          isValid: false, 
+          error: "MD5哈希值格式不正确，只能包含0-9和a-f字符" 
+        };
+      }
+    }
+
+    return { isValid: true };
+  };
+
   // 验证URL文件格式是否正确
   const validateURLFileType = (url: string, fileType: FileType): { isValid: boolean; error?: string } => {
     if (!url.trim()) {
       return { isValid: true }; // 空URL不验证
+    }
+
+    // 首先验证MD5格式
+    const md5Validation = validateMD5Format(url);
+    if (!md5Validation.isValid) {
+      return md5Validation;
     }
 
     const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
@@ -237,31 +302,60 @@ export default function YamlGenerator() {
   // 验证年份是否有效
   const validateYear = (year: string): boolean => {
     if (!year) return true; // 空值不验证
+    
+    // 验证是否为整数
+    if (!/^\d+$/.test(year.trim())) {
+      return false;
+    }
+    
     const yearNum = parseInt(year);
     const currentYear = new Date().getFullYear();
-    return yearNum >= 2000 && yearNum <= currentYear;
+    // 只验证不能超过当前年份，不限制最小年份
+    return yearNum > 0 && yearNum <= currentYear;
   };
 
   // 验证年份范围
   const validateYearRange = (startYear: string, endYear: string): { isValid: boolean; error?: string } => {
-    if (!startYear || !endYear) {
-      return { isValid: true }; // 空值不验证
+    // 如果两个年份都为空，则通过验证
+    if (!startYear && !endYear) {
+      return { isValid: true };
     }
 
-    const start = parseInt(startYear);
-    const end = parseInt(endYear);
-    const currentYear = new Date().getFullYear();
-
-    if (start < 2000 || start > currentYear) {
-      return { isValid: false, error: `开始年份必须在 2000 到 ${currentYear} 之间` };
+    // 如果只填了一个年份，要求另一个也必须填
+    if (startYear && !endYear) {
+      return { isValid: false, error: "填写了开始年份后，结束年份也必须填写" };
     }
 
-    if (end < 2000 || end > currentYear) {
-      return { isValid: false, error: `结束年份必须在 2000 到 ${currentYear} 之间` };
+    if (!startYear && endYear) {
+      return { isValid: false, error: "填写了结束年份后，开始年份也必须填写" };
     }
 
-    if (end !== start && end !== start + 1) {
-      return { isValid: false, error: "结束年份必须等于开始年份或开始年份+1" };
+    // 如果两个年份都填了，验证范围关系
+    if (startYear && endYear) {
+      // 验证是否为整数
+      if (!/^\d+$/.test(startYear.trim())) {
+        return { isValid: false, error: "开始年份必须是整数" };
+      }
+      
+      if (!/^\d+$/.test(endYear.trim())) {
+        return { isValid: false, error: "结束年份必须是整数" };
+      }
+
+      const start = parseInt(startYear);
+      const end = parseInt(endYear);
+      const currentYear = new Date().getFullYear();
+
+      if (start < 2000 || start > currentYear) {
+        return { isValid: false, error: `开始年份必须在 2000 到 ${currentYear} 之间` };
+      }
+
+      if (end < 2000 || end > currentYear) {
+        return { isValid: false, error: `结束年份必须在 2000 到 ${currentYear} 之间` };
+      }
+
+      if (end !== start && end !== start + 1) {
+        return { isValid: false, error: "结束年份必须等于开始年份或开始年份+1" };
+      }
     }
 
     return { isValid: true };
@@ -303,89 +397,91 @@ export default function YamlGenerator() {
 
   const generateYaml = () => {
     const schemaUrl = `https://byrdocs.org/schema/${fileType}.yaml`;
-    let yamlContent = `# yaml-language-server: $schema=${schemaUrl}\n\n`;
-
-    yamlContent += `id: ${formData.id}\n`;
-    yamlContent += `url: ${formData.url}\n`;
-    yamlContent += `type: ${formData.type}\n\n`;
-    yamlContent += `data:\n`;
+    
+    // 构建YAML对象
+    const yamlObject: any = {
+      id: formData.id,
+      url: formData.url,
+      type: formData.type,
+      data: {}
+    };
 
     if (fileType === "book") {
       const data = formData.data as BookData;
-      yamlContent += `  title: ${data.title}\n`;
-      if (data.authors.filter((a) => a.trim()).length > 0) {
-        yamlContent += `  authors:\n`;
-        data.authors
-          .filter((a) => a.trim())
-          .forEach((author) => {
-            yamlContent += `    - ${author}\n`;
-          });
+      yamlObject.data.title = data.title;
+      
+      // 只添加非空的数组
+      const authors = data.authors.filter((a) => a.trim());
+      if (authors.length > 0) {
+        yamlObject.data.authors = authors;
       }
-      if (data.translators.filter((t) => t.trim()).length > 0) {
-        yamlContent += `  translators:\n`;
-        data.translators
-          .filter((t) => t.trim())
-          .forEach((translator) => {
-            yamlContent += `    - ${translator}\n`;
-          });
+      
+      const translators = data.translators.filter((t) => t.trim());
+      if (translators.length > 0) {
+        yamlObject.data.translators = translators;
       }
-      if (data.edition) yamlContent += `  edition: '${data.edition}'\n`;
-      if (data.publisher) yamlContent += `  publisher: ${data.publisher}\n`;
-      if (data.publish_year)
-        yamlContent += `  publish_year: '${data.publish_year}'\n`;
-      if (data.isbn.filter((i) => i.trim()).length > 0) {
-        yamlContent += `  isbn:\n`;
-        data.isbn
-          .filter((i) => i.trim())
-          .forEach((isbn) => {
-            yamlContent += `    - ${isbn}\n`;
-          });
+      
+      if (data.edition) yamlObject.data.edition = data.edition;
+      if (data.publisher) yamlObject.data.publisher = data.publisher;
+      if (data.publish_year) yamlObject.data.publish_year = data.publish_year;
+      
+      const isbn = data.isbn.filter((i) => i.trim());
+      if (isbn.length > 0) {
+        yamlObject.data.isbn = isbn;
       }
-      yamlContent += `  filetype: ${data.filetype}\n`;
+      
+      yamlObject.data.filetype = data.filetype;
     } else if (fileType === "test") {
       const data = formData.data as TestData;
-      if (data.college.filter((c) => c.trim()).length > 0) {
-        yamlContent += `  college:\n`;
-        data.college
-          .filter((c) => c.trim())
-          .forEach((college) => {
-            yamlContent += `    - ${college}\n`;
-          });
+      
+      const college = data.college.filter((c) => c.trim());
+      if (college.length > 0) {
+        yamlObject.data.college = college;
       }
-      yamlContent += `  course:\n`;
-      if (data.course.type) yamlContent += `    type: ${data.course.type}\n`;
-      yamlContent += `    name: ${data.course.name}\n`;
-      yamlContent += `  time:\n`;
-      yamlContent += `    start: '${data.time.start}'\n`;
-      yamlContent += `    end: '${data.time.end}'\n`;
-      if (data.time.semester)
-        yamlContent += `    semester: ${data.time.semester}\n`;
-      if (data.time.stage) yamlContent += `    stage: ${data.time.stage}\n`;
-      yamlContent += `  filetype: ${data.filetype}\n`;
+      
+      yamlObject.data.course = {
+        name: data.course.name
+      };
+      if (data.course.type) {
+        yamlObject.data.course.type = data.course.type;
+      }
+      
+      yamlObject.data.time = {};
+      if (data.time.start) yamlObject.data.time.start = data.time.start;
+      if (data.time.end) yamlObject.data.time.end = data.time.end;
+      if (data.time.semester) yamlObject.data.time.semester = data.time.semester;
+      if (data.time.stage) yamlObject.data.time.stage = data.time.stage;
+      
+      yamlObject.data.filetype = data.filetype;
+      
       if (data.content.length > 0) {
-        yamlContent += `  content:\n`;
-        data.content.forEach((content) => {
-          yamlContent += `    - ${content}\n`;
-        });
+        yamlObject.data.content = data.content;
       }
     } else if (fileType === "doc") {
       const data = formData.data as DocData;
-      yamlContent += `  title: ${data.title}\n`;
-      yamlContent += `  filetype: ${data.filetype}\n`;
-      yamlContent += `  course:\n`;
-      data.course.forEach((course) => {
-        yamlContent += `    - type: ${course.type}\n`;
-        yamlContent += `      name: ${course.name}\n`;
-      });
+      yamlObject.data.title = data.title;
+      yamlObject.data.filetype = data.filetype;
+      yamlObject.data.course = data.course.map(course => ({
+        ...(course.type && { type: course.type }),
+        name: course.name
+      }));
+      
       if (data.content.length > 0) {
-        yamlContent += `  content:\n`;
-        data.content.forEach((content) => {
-          yamlContent += `    - ${content}\n`;
-        });
+        yamlObject.data.content = data.content;
       }
     }
 
-    return yamlContent;
+    // 使用js-yaml生成YAML字符串
+    const yamlContent = YAML.dump(yamlObject, {
+      indent: 2,
+      lineWidth: -1, // 不限制行宽
+      noRefs: true,  // 不使用引用
+      quotingType: '"', // 使用双引号
+      forceQuotes: false // 不强制所有字符串都加引号
+    });
+
+    // 添加schema注释
+    return `# yaml-language-server: $schema=${schemaUrl}\n\n${yamlContent}`;
   };
 
   const downloadYaml = () => {
@@ -570,13 +666,11 @@ export default function YamlGenerator() {
     } else if (fileType === "test") {
       const data = formData.data as TestData;
       
-      // 验证年份范围
+      // 验证年份范围（年份不是必填的）
       const yearValidation = validateYearRange(data.time.start, data.time.end);
       
       return !!(
         data.course.name &&
-        data.time.start &&
-        data.time.end &&
         data.content.length > 0 &&
         yearValidation.isValid
       );
@@ -735,9 +829,6 @@ export default function YamlGenerator() {
           </p>
           {urlValidationError && (
             <p className="text-xs text-red-500">{urlValidationError}</p>
-          )}
-          {formData.id && !urlValidationError && (
-            <p className="text-xs text-green-600">MD5: {formData.id}</p>
           )}
         </div>
       </div>
@@ -900,7 +991,7 @@ export default function YamlGenerator() {
               className={`text-sm ${data.publish_year && !validateYear(data.publish_year) ? "border-red-500" : ""}`}
               type="number"
               step="1"
-              min="2000"
+              min="1"
               max={new Date().getFullYear()}
               placeholder="例如：2008"
               value={data.publish_year}
@@ -916,7 +1007,7 @@ export default function YamlGenerator() {
             />
             {data.publish_year && !validateYear(data.publish_year) && (
               <p className="text-xs text-red-500">
-                出版年份必须在 2000 到 {new Date().getFullYear()} 之间
+                出版年份必须是有效年份，不能超过 {new Date().getFullYear()} 年
               </p>
             )}
           </div>
@@ -1090,7 +1181,7 @@ export default function YamlGenerator() {
           <Label>时间信息 *</Label>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="start-year">开始年份 *</Label>
+              <Label htmlFor="start-year">开始年份</Label>
               <Input
                 id="start-year"
                 className={`text-sm ${data.time.start && !validateYear(data.time.start) ? "border-red-500" : ""}`}
@@ -1113,15 +1204,10 @@ export default function YamlGenerator() {
                   }))
                 }
               />
-              {data.time.start && !validateYear(data.time.start) && (
-                <p className="text-xs text-red-500">
-                  开始年份必须在 2000 到 {new Date().getFullYear()} 之间
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="end-year">结束年份 *</Label>
+              <Label htmlFor="end-year">结束年份</Label>
               <Input
                 id="end-year"
                 className={`text-sm ${data.time.end && !validateYear(data.time.end) ? "border-red-500" : ""}`}
@@ -1144,13 +1230,17 @@ export default function YamlGenerator() {
                   }))
                 }
               />
-              {data.time.end && !validateYear(data.time.end) && (
-                <p className="text-xs text-red-500">
-                  结束年份必须在 2000 到 {new Date().getFullYear()} 之间
-                </p>
-              )}
             </div>
+            
 
+          {(() => {
+            const yearValidation = validateYearRange(data.time.start, data.time.end);
+            return !yearValidation.isValid && yearValidation.error && (
+              <p className="text-xs text-red-500 col-span-2">
+                {yearValidation.error}
+              </p>
+            );
+          })()}
             <div className="space-y-2">
               <Label htmlFor="semester">学期</Label>
               <div className="flex gap-2">
@@ -1244,14 +1334,6 @@ export default function YamlGenerator() {
             </div>
           </div>
         </div>
-        {(() => {
-          const yearValidation = validateYearRange(data.time.start, data.time.end);
-          return !yearValidation.isValid && yearValidation.error && (
-            <p className="text-xs text-red-500">
-              {yearValidation.error}
-            </p>
-          );
-        })()}
 
         <div className="space-y-2">
           <Label>内容类型 *</Label>
@@ -1531,21 +1613,25 @@ export default function YamlGenerator() {
               __html: hljs.highlight(generateYaml(), { language: 'yaml' }).value
             }}
           /> */}
-      <pre
-        className="bg-muted p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap"
-        dangerouslySetInnerHTML={{
-          __html: hljs.highlight(generateYaml(), { language: "yaml" }).value,
-        }}
-      ></pre>
+      <div className={`p-4 rounded-lg text-sm overflow-x-auto border yaml-highlight ${
+        isDarkMode ? 'yaml-dark' : 'yaml-light'
+      }`}>
+        <pre
+          className="whitespace-pre-wrap m-0"
+          dangerouslySetInnerHTML={{
+            __html: hljs.highlight(generateYaml(), { language: "yaml" }).value,
+          }}
+        />
+      </div>
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => setStep(3)}>
           上一步
         </Button>
         <Button
           onClick={downloadYaml}
-          className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+          className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
         >
-          <Download className="w-4 h-4 mr-2" />
+          <Download className="w-4 h-4 mr-1" />
           下载 YAML 文件
         </Button>
       </div>

@@ -92,3 +92,74 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* YAML Syntax Highlighting */
+.yaml-highlight {
+  font-family: 'Courier New', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+}
+
+.yaml-light {
+  @apply bg-gray-50 border-gray-200;
+}
+
+.yaml-dark {
+  @apply bg-gray-900 border-gray-700;
+}
+
+.yaml-light .hljs {
+  background: transparent !important;
+  color: #374151 !important;
+}
+
+.yaml-light .hljs-attr {
+  color: #2563eb !important;
+}
+
+.yaml-light .hljs-string {
+  color: #059669 !important;
+}
+
+.yaml-light .hljs-number {
+  color: #d97706 !important;
+}
+
+.yaml-light .hljs-literal {
+  color: #7c3aed !important;
+}
+
+.yaml-light .hljs-comment {
+  color: #6b7280 !important;
+}
+
+.yaml-light .hljs-keyword {
+  color: #dc2626 !important;
+}
+
+.yaml-dark .hljs {
+  background: transparent !important;
+  color: #e5e7eb !important;
+}
+
+.yaml-dark .hljs-attr {
+  color: #60a5fa !important;
+}
+
+.yaml-dark .hljs-string {
+  color: #34d399 !important;
+}
+
+.yaml-dark .hljs-number {
+  color: #f59e0b !important;
+}
+
+.yaml-dark .hljs-literal {
+  color: #a78bfa !important;
+}
+
+.yaml-dark .hljs-comment {
+  color: #9ca3af !important;
+}
+
+.yaml-dark .hljs-keyword {
+  color: #f472b6 !important;
+}

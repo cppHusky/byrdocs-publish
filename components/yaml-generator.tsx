@@ -566,7 +566,53 @@ export default function YamlGenerator() {
     setStep(1);
     setHasDownloaded(false);
     setUrlValidationError("");
-    resetForm("book");
+    resetFormCompletely("book");
+  };
+
+  const resetFormCompletely = (type: FileType) => {
+    setFileType(type);
+    setUrlValidationError(""); // 清除验证错误
+    
+    // 同步键盘选择索引
+    const typeIndex = type === "book" ? 0 : type === "test" ? 1 : 2;
+    setSelectedTypeIndex(typeIndex);
+    let initialData: BookData | TestData | DocData;
+
+    if (type === "book") {
+      initialData = {
+        title: "",
+        authors: [""],
+        translators: [],
+        edition: "",
+        publisher: "",
+        publish_year: "",
+        isbn: [""],
+        filetype: "pdf",
+      } as BookData;
+    } else if (type === "test") {
+      initialData = {
+        college: [""],
+        course: { type: "", name: "" },
+        time: { start: "", end: "", semester: "", stage: "" },
+        filetype: "pdf",
+        content: [],
+      } as TestData;
+    } else {
+      initialData = {
+        title: "",
+        filetype: "pdf",
+        course: [{ type: "", name: "" }],
+        content: [],
+      } as DocData;
+    }
+
+    // 完全重置所有数据，包括URL和ID
+    setFormData({
+      id: "",
+      url: "",
+      type,
+      data: initialData,
+    });
   };
 
   const copyYamlToClipboard = async () => {
@@ -734,12 +780,12 @@ export default function YamlGenerator() {
       } as DocData;
     }
 
-    setFormData({
-      id: "",
-      url: "",
+    // 保持URL和ID不变，只重置data部分
+    setFormData((prev) => ({
+      ...prev,
       type,
       data: initialData,
-    });
+    }));
   };
 
   // 验证步骤2
@@ -1037,6 +1083,12 @@ export default function YamlGenerator() {
           createNewMetadata();
         }
       }
+
+      // 第四页：Cmd/Ctrl + C 复制YAML内容
+      if (step === 4 && cmdOrCtrl && e.key === 'c' && !isInSpecialComponent) {
+        e.preventDefault();
+        copyYamlToClipboard();
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -1053,6 +1105,14 @@ export default function YamlGenerator() {
         if (step === 2) {
           // 第二页：focus URL输入框
           elementToFocus = document.getElementById('url');
+          if (elementToFocus && elementToFocus instanceof HTMLInputElement) {
+            elementToFocus.focus();
+            // 如果URL已有内容，则全选
+            if (formData.url.trim()) {
+              elementToFocus.select();
+            }
+          }
+          return; // 提前返回，避免下面的通用focus逻辑
         } else if (step === 3) {
           // 第三页：根据文件类型focus第一个输入框
           if (fileType === 'book') {
@@ -1075,7 +1135,7 @@ export default function YamlGenerator() {
     }
     
     setPreviousStep(step);
-  }, [step, previousStep, fileType]);
+  }, [step, previousStep, fileType, formData.url]);
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -1217,7 +1277,8 @@ export default function YamlGenerator() {
                 setUrlValidationError("");
               }
               
-              const detectedFileType = extractFileTypeFromURL(url, fileType);
+              // 只有当URL不为空时才提取文件类型，否则使用默认的pdf
+              const detectedFileType = url.trim() ? extractFileTypeFromURL(url, fileType) : "pdf";
               setFormData((prev) => ({
                 ...prev,
                 url: url,
@@ -2332,6 +2393,14 @@ export default function YamlGenerator() {
                       <span className="text-sm">{hasDownloaded ? '创建新的元信息' : '下载YAML文件'}</span>
                       <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
                     </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">复制YAML内容</span>
+                      <div className="flex items-center gap-1">
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">Cmd/Ctrl</kbd>
+                        <span className="text-xs">+</span>
+                        <kbd className="px-2 py-1 text-xs bg-background border rounded">C</kbd>
+                      </div>
+                    </div>
                   </>
                 )}
               </div>
@@ -2664,6 +2733,11 @@ function CheckboxGroup({
     }
   };
 
+  const handleMouseLeave = () => {
+    // 鼠标移出时取消高亮
+    setFocusedIndex(-1);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -2672,16 +2746,18 @@ function CheckboxGroup({
       onKeyDown={handleKeyDown}
       onFocus={handleFocus}
       onBlur={handleBlur}
+      onMouseLeave={handleMouseLeave}
       role="group"
       aria-label="复选框组"
     >
       {options.map((option, index) => (
         <div
           key={option}
-          className={`flex items-center space-x-2 p-1 rounded cursor-pointer ${
+          className={`text-sm flex items-center space-x-2 p-1 rounded cursor-pointer ${
             focusedIndex === index ? 'bg-accent' : ''
           }`}
-          onClick={() => {
+          onClick={(e) => {
+            e.preventDefault();
             setFocusedIndex(index);
             toggleOption(option);
           }}
@@ -2690,15 +2766,14 @@ function CheckboxGroup({
           <Checkbox
             id={`checkbox-${option}`}
             checked={selectedValues.includes(option)}
-            onCheckedChange={() => toggleOption(option)}
+            onCheckedChange={() => {
+              toggleOption(option);
+            }}
             tabIndex={-1} // 让容器处理焦点
           />
-          <Label 
-            htmlFor={`checkbox-${option}`}
-            className="cursor-pointer flex-1"
-          >
+          <span className="cursor-pointer flex-1 select-none">
             {option}
-          </Label>
+          </span>
         </div>
       ))}
     </div>

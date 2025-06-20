@@ -1704,7 +1704,7 @@ export default function YamlGenerator() {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-8 text-sm text-muted-foreground">
+        <div className="text-center my-8 text-sm text-muted-foreground">
           <p>
             <a href="https://byrdocs.org" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">BYRDocs</a> | <a href="https://github.com/byrdocs" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">GitHub</a>
           </p>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "../ui/input";
+import { filterByPinyinSearch } from "@/lib/pinyin-search";
 
 // 课程名称自动补全组件
 export function CourseNameInput({
@@ -8,6 +9,7 @@ export function CourseNameInput({
     id,
     courseList,
     placeholder = "例如：概率论与数理统计",
+    focusPlaceholder,
     isHighlighted = false,
   }: {
     value: string;
@@ -15,9 +17,11 @@ export function CourseNameInput({
     onChange: (value: string) => void;
     courseList: string[];
     placeholder?: string;
+    focusPlaceholder?: string;
     isHighlighted?: boolean;
   }) {
     const [open, setOpen] = useState(false);
+    const [focus, setFocus] = useState(false);
     const [inputValue, setInputValue] = useState(value);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const listRef = useRef<HTMLDivElement>(null);
@@ -27,9 +31,11 @@ export function CourseNameInput({
       setInputValue(value);
     }, [value]);
   
-    // 过滤课程列表
-    const filteredCourses = courseList.filter((course) =>
-      course.toLowerCase().includes(inputValue.toLowerCase())
+        // 过滤课程列表
+    const filteredCourses = filterByPinyinSearch(
+      courseList,
+      inputValue.trim(),
+      (course) => course
     ).slice(0, 10);
   
     // 重置高亮索引当列表变化时
@@ -132,13 +138,14 @@ export function CourseNameInput({
     };
   
     const handleFocus = () => {
+      setFocus(true);
       if (inputValue.trim().length > 0) {
         setOpen(true);
       }
     };
   
     const handleBlur = (e: React.FocusEvent) => {
-      // 延迟关闭以允许点击选项
+      setFocus(false);
       setTimeout(() => {
         setOpen(false);
         setHighlightedIndex(-1);
@@ -155,7 +162,7 @@ export function CourseNameInput({
           onFocus={handleFocus}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={focus ? focusPlaceholder || placeholder : placeholder}
           autoComplete="off"
         />
         {open && filteredCourses.length > 0 && (

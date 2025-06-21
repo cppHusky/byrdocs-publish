@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { filterByPinyinSearch } from "@/lib/pinyin-search";
 
 const COLLEGES = [
     "信息与通信工程学院",
@@ -39,6 +40,12 @@ export function CollegeMultiSelect({
     onCollegesChange: (colleges: string[]) => void;
   }) {
     const [open, setOpen] = useState(false);
+    const [searchValue, setSearchValue] = useState("");
+
+    // 过滤学院列表
+    const filteredColleges = searchValue.trim() 
+      ? filterByPinyinSearch(COLLEGES, searchValue, (college) => college)
+      : COLLEGES;
   
     const handleSelect = (college: string) => {
       if (selectedColleges.includes(college)) {
@@ -69,12 +76,16 @@ export function CollegeMultiSelect({
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-            <Command>
-              <CommandInput placeholder="搜索学院..." />
+            <Command shouldFilter={false}>
+              <CommandInput 
+                placeholder="搜索学院..." 
+                value={searchValue}
+                onValueChange={setSearchValue}
+              />
               <CommandList>
                 <CommandEmpty>未找到学院</CommandEmpty>
                 <CommandGroup className="max-h-64 overflow-auto">
-                  {COLLEGES.map((college) => (
+                  {filteredColleges.map((college) => (
                     <CommandItem
                       key={college}
                       value={college}

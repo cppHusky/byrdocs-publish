@@ -1262,7 +1262,6 @@ export default function YamlGenerator() {
                   }
                 }}
                 courseList={courseList}
-                placeholder="例如：概率论与数理统计"
                 isHighlighted={highlightedFields.includes('test-course-name')}
               />
             </div>
@@ -1624,7 +1623,6 @@ export default function YamlGenerator() {
                           }
                         }}
                         courseList={courseList}
-                        placeholder="例如：工程图学"
                         isHighlighted={highlightedFields.includes('doc-course')}
                       />
                     </div>

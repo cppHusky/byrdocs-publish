@@ -51,7 +51,7 @@ interface S3UploadResponse {
 
 
 
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function FileUpload({ 
   allowedTypes, 
@@ -215,7 +215,7 @@ export default function FileUpload({
         Body: file,
         Tagging: s3Config.tags ? Object.entries(s3Config.tags).map(([key, value]) => `${key}=${value}`).join('&') : undefined,
       },
-      queueSize: 4,
+      queueSize: 1,
       partSize: CHUNK_SIZE,
       leavePartsOnError: false,
     });
@@ -434,7 +434,7 @@ export default function FileUpload({
 
   if (!isLoggedIn) {
     return (
-      <Card className="w-full max-w-md mx-auto">
+      <Card className={cn("w-full max-w-md mx-auto", className)}>
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
             <User className="w-6 h-6 text-primary" />

@@ -53,11 +53,13 @@ export const generateYaml = (fileType: FileType, formData: FormData) => {
       yamlObject.data.course.type = data.course.type;
     }
 
-    yamlObject.data.time = {};
-    if (data.time.start) yamlObject.data.time.start = data.time.start;
-    if (data.time.end) yamlObject.data.time.end = data.time.end;
-    if (data.time.semester) yamlObject.data.time.semester = data.time.semester;
-    if (data.time.stage) yamlObject.data.time.stage = data.time.stage;
+    if (data.time.start || data.time.end || data.time.semester || data.time.stage) {
+      yamlObject.data.time = {};
+      if (data.time.start) yamlObject.data.time.start = data.time.start;
+      if (data.time.end) yamlObject.data.time.end = data.time.end;
+      if (data.time.semester) yamlObject.data.time.semester = data.time.semester;
+      if (data.time.stage) yamlObject.data.time.stage = data.time.stage;
+    }
 
     yamlObject.data.filetype = data.filetype;
 

@@ -4,8 +4,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { EscapeHandler } from '@/components/escape-handler'
 
 export const metadata: Metadata = {
-  title: 'BYR Docs 元信息生成器',
-  description: '轻松生成符合规范的YAML元信息文件',
+  title: 'BYR Docs Publish',
+  description: '上传文件和编写元信息',
 }
 
 export default function RootLayout({

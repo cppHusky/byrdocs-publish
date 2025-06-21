@@ -104,6 +104,7 @@ export default function YamlGenerator() {
   const [previousStep, setPreviousStep] = useState(1); // 跟踪上一个步骤
   const [showShortcuts, setShowShortcuts] = useState(false); // 快捷键帮助弹窗
   const [inputMethod, setInputMethod] = useState<'url' | 'upload'>('upload'); // 输入方式选择，默认上传文件
+  const [uploadedFileInfo, setUploadedFileInfo] = useState<{ name: string; size: number } | null>(null); // 保存上传文件信息
   const [formData, setFormData] = useState<FormData>({
     id: "",
     url: "",
@@ -147,6 +148,7 @@ export default function YamlGenerator() {
     setFileType(type);
     setUrlValidationError(""); // 清除验证错误
     setInputMethod('upload'); // 重置为上传文件方式
+    setUploadedFileInfo(null); // 清除上传文件信息
     // 同步键盘选择索引
     const typeIndex = type === "book" ? 0 : type === "test" ? 1 : 2;
     setSelectedTypeIndex(typeIndex);
@@ -860,11 +862,16 @@ export default function YamlGenerator() {
         <div className="space-y-2">
           <FileUpload
             allowedTypes={fileType === "book" ? ["pdf"] : fileType === "test" ? ["pdf"] : ["pdf", "zip"]}
-            onUploadSuccess={(key) => {
+            onUploadSuccess={(key: string, fileInfo?: { name: string; size: number }) => {
               // 构建完整的URL
               const fullUrl = `https://byrdocs.org/files/${key}`;
               const md5 = extractMD5FromURL(fullUrl);
               const detectedFileType = extractFileTypeFromURL(fullUrl, fileType);
+              
+              // 保存文件信息
+              if (fileInfo) {
+                setUploadedFileInfo(fileInfo);
+              }
               
               setFormData((prev) => ({
                 ...prev,
@@ -882,6 +889,7 @@ export default function YamlGenerator() {
               setUrlValidationError(`上传失败: ${error}`);
             }}
             initialUploadedKey={formData.url ? formData.url.split('/').pop() : undefined}
+            initialFileInfo={uploadedFileInfo}
             onReset={() => {
               setFormData((prev) => ({
                 ...prev,
@@ -892,6 +900,7 @@ export default function YamlGenerator() {
                   filetype: "pdf",
                 },
               }));
+              setUploadedFileInfo(null);
             }}
             className="max-w-none"
           />
@@ -1967,10 +1976,10 @@ export default function YamlGenerator() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center my-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            BYR Docs 元信息生成器
+            BYR Docs Publish
           </h1>
           <p className="text-lg text-muted-foreground">
-            轻松生成符合
+            上传文件和编写
             <a
               href="https://github.com/byrdocs/byrdocs-archive/wiki/%E5%85%B3%E4%BA%8E%E6%96%87%E4%BB%B6"
               target="_blank"
@@ -1978,9 +1987,8 @@ export default function YamlGenerator() {
               className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300  hover:underline"
               
             >
-              规范
+              元信息
             </a>
-            的YAML元信息文件
           </p>
         </div>
 

@@ -26,10 +26,11 @@ import { cn } from "@/lib/utils";
 
 interface FileUploadProps {
   allowedTypes: string[];
-  onUploadSuccess: (key: string) => void;
+  onUploadSuccess: (key: string, fileInfo?: { name: string; size: number }) => void;
   onUploadError?: (error: string) => void;
   className?: string;
   initialUploadedKey?: string; // 初始已上传的文件key
+  initialFileInfo?: { name: string; size: number } | null; // 初始文件信息
   onReset?: () => void; // 重置回调
 }
 
@@ -59,6 +60,7 @@ export default function FileUpload({
   onUploadError,
   className,
   initialUploadedKey,
+  initialFileInfo,
   onReset
 }: FileUploadProps) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking
@@ -105,12 +107,16 @@ export default function FileUpload({
         const extension = keyParts[keyParts.length - 1];
         const md5 = keyParts.slice(0, -1).join('.');
         setMd5Hash(md5);
-        // 创建一个虚拟文件对象用于显示
-        const virtualFile = new File([], `uploaded-file.${extension}`, { type: `application/${extension}` });
+        // 使用传入的文件信息或创建默认信息
+        const fileName = initialFileInfo?.name || `uploaded-file.${extension}`;
+        const fileSize = initialFileInfo?.size || 0;
+        const virtualFile = new File([], fileName, { type: `application/${extension}` });
+        // 手动设置文件大小（通过Object.defineProperty因为File对象的size是只读的）
+        Object.defineProperty(virtualFile, 'size', { value: fileSize, writable: false });
         setSelectedFile(virtualFile);
       }
     }
-  }, [initialUploadedKey, uploadedKey]);
+  }, [initialUploadedKey, uploadedKey, initialFileInfo]);
 
   // Calculate MD5 hash in chunks
   const calculateMD5 = useCallback(async (file: File, signal?: AbortSignal): Promise<string> => {
@@ -337,7 +343,7 @@ export default function FileUpload({
       
       setUploadStatus('success');
       setUploadedKey(key);
-      onUploadSuccess(key);
+      onUploadSuccess(key, selectedFile ? { name: selectedFile.name, size: selectedFile.size } : undefined);
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         setErrorMessage('上传已取消');
@@ -391,7 +397,7 @@ export default function FileUpload({
       case 'success':
         return 'text-green-600';
       case 'error':
-        return 'text-red-600';
+        return 'text-destructive';
       case 'uploading':
       case 'calculating':
       case 'preparing':
@@ -555,7 +561,21 @@ export default function FileUpload({
             {(uploadStatus === 'uploading' || uploadStatus === 'success') && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className={getStatusColor()}>{getStatusText()}</span>
+                  <span className={getStatusColor()}>
+                    {uploadedKey ? (
+                      <span className="ml-1 text-green-600 font-mono break-all">
+                        <a 
+                          href={`https://byrdocs.org/files/${uploadedKey}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {getStatusText()}
+                          <ExternalLink size={12} className="inline-block ml-1" />
+                        </a>
+                      </span>
+                    ) : getStatusText()}
+                  </span>
                   <span className="text-muted-foreground">
                     {Math.round(uploadProgress)}%
                   </span>

@@ -250,10 +250,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = "Button"
 
-export interface ButtonKbdProps extends React.HTMLAttributes<HTMLElement> {}
+export interface ButtonKbdProps extends React.HTMLAttributes<HTMLElement> {
+  invert?: boolean
+}
 
 const ButtonKbd = React.forwardRef<HTMLElement, ButtonKbdProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, invert, ...props }, ref) => {
     const context = React.useContext(ShortcutContext)
     const shortcutText = React.Children.toArray(children).join('')
     
@@ -294,7 +296,11 @@ const ButtonKbd = React.forwardRef<HTMLElement, ButtonKbdProps>(
     return (
       <kbd
         className={cn(
-          "px-1 py-px bg-muted text-muted-foreground text-xs border rounded transition-all duration-200"
+          "px-1 py-px bg-muted text-muted-foreground text-xs border rounded transition-all duration-200",
+          {
+            "bg-white/30 text-white/80 border-white/40 dark:bg-black/5 dark:text-black/50 dark:border-black/20": invert,
+          },
+          className
         )}
         ref={ref}
         {...props}

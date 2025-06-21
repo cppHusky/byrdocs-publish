@@ -136,7 +136,6 @@ export default function YamlGenerator() {
   const createNewMetadata = () => {
     // 重置所有状态
     setStep(1);
-    setHasDownloaded(false);
     setUrlValidationError("");
     resetFormCompletely("book");
   };
@@ -144,7 +143,6 @@ export default function YamlGenerator() {
   const resetFormCompletely = (type: FileType) => {
     setFileType(type);
     setUrlValidationError(""); // 清除验证错误
-    
     // 同步键盘选择索引
     const typeIndex = type === "book" ? 0 : type === "test" ? 1 : 2;
     setSelectedTypeIndex(typeIndex);
@@ -781,7 +779,7 @@ export default function YamlGenerator() {
           setStep(2);
         }} size="lg">
           下一步：填写基本信息
-          <ButtonKbd>x</ButtonKbd>
+          <ButtonKbd invert={true}>x</ButtonKbd>
         </Button>
       </div>
     </div>
@@ -856,7 +854,7 @@ export default function YamlGenerator() {
         </Button>
         <Button onClick={() => setStep(3)} disabled={!validateStep2()}>
           下一步：填写详细信息
-          <ButtonKbd>x</ButtonKbd>
+          <ButtonKbd invert={true}>x</ButtonKbd>
         </Button>
       </div>
     </div>
@@ -1733,6 +1731,7 @@ export default function YamlGenerator() {
             <Button onClick={() => {
               if (validateStep3()) {
                 setHighlightedFields([]);
+                setHasDownloaded(false);
                 setStep(4);
               } else {
                 const highlightIds = getHighlightedFieldIds();
@@ -1764,7 +1763,7 @@ export default function YamlGenerator() {
             }}
             >
               下一步：预览和下载
-              <ButtonKbd>x</ButtonKbd>
+              <ButtonKbd invert={true}>x</ButtonKbd>
             </Button>
           </div>
         </div>
@@ -1821,7 +1820,7 @@ export default function YamlGenerator() {
             >
               <Download className="w-4 h-4 mr-1" />
               下载 YAML 文件
-              <ButtonKbd>d</ButtonKbd>
+              <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
             </Button>
           </>
         ) : (
@@ -1850,7 +1849,7 @@ export default function YamlGenerator() {
               >
                 <Download className="w-4 h-4 mr-1" />
                 重新下载
-                <ButtonKbd>d</ButtonKbd>
+                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
               </Button>
             </div>
           </>

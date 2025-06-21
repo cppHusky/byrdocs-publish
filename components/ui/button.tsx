@@ -296,7 +296,7 @@ const ButtonKbd = React.forwardRef<HTMLElement, ButtonKbdProps>(
     return (
       <kbd
         className={cn(
-          "px-1 py-px bg-muted text-muted-foreground text-xs border rounded transition-all duration-200",
+          "hidden sm:inline-block px-1 py-px bg-muted text-muted-foreground text-xs border rounded transition-all duration-200",
           {
             "bg-white/30 text-white/80 border-white/40 dark:bg-black/5 dark:text-black/50 dark:border-black/20": invert,
           },

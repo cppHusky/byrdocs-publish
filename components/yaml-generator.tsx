@@ -1541,7 +1541,11 @@ export default function YamlGenerator() {
                         }
                       >
                         <Trash2 className="w-4 h-4" />
-                        <ButtonKbd>{"d" + (index + 1).toString()}</ButtonKbd>
+                        <ButtonKbd
+                          className="text-muted/80 dark:text-muted-foreground bg-white/10 dark:bg-white/5 border-white/20 dark:border-white/10"
+                        >
+                          {"d" + (index + 1).toString()}
+                        </ButtonKbd>
                       </Button>
                     )}
                   </div>

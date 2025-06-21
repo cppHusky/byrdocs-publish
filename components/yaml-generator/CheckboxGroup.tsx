@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { Checkbox } from "../ui/checkbox";
 import { useState, useRef } from "react";
 
@@ -16,6 +17,7 @@ export function CheckboxGroup({
     isHighlighted?: boolean;
   }) {
     const [focusedIndex, setFocusedIndex] = useState(-1);
+    const [hasFocus, setHasFocus] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
   
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -30,6 +32,13 @@ export function CheckboxGroup({
         if (focusedIndex >= 0) {
           toggleOption(options[focusedIndex]);
         }
+      } else if (e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const index = parseInt(e.key) - 1;
+        if (index < options.length) {
+          toggleOption(options[index]);
+          setFocusedIndex(index);
+        }
       }
     };
   
@@ -42,27 +51,33 @@ export function CheckboxGroup({
     };
   
     const handleFocus = () => {
+      setHasFocus(true);
       if (focusedIndex === -1) {
         setFocusedIndex(0);
       }
     };
   
     const handleBlur = (e: React.FocusEvent) => {
-      // 只有当焦点完全离开容器时才重置
       if (!containerRef.current?.contains(e.relatedTarget)) {
+        setHasFocus(false);
         setFocusedIndex(-1);
       }
     };
   
     const handleMouseLeave = () => {
-      // 鼠标移出时取消高亮
       setFocusedIndex(-1);
     };
   
     return (
       <div
         ref={containerRef}
-        className={`space-y-2 ${isHighlighted ? 'p-2 border border-red-500 rounded-md' : ''}`}
+        className={cn(
+          "space-y-px p-2 border border-input rounded-md transition-colors focus:outline-none focus:ring-2 ring-primary",
+          {
+            'border-red-500': isHighlighted,
+            'border-transparent': !isHighlighted
+          }
+        )}
         tabIndex={0}
         onKeyDown={handleKeyDown}
         onFocus={handleFocus}
@@ -75,7 +90,7 @@ export function CheckboxGroup({
         {options.map((option, index) => (
           <div
             key={option}
-            className={`text-sm flex items-center space-x-2 p-1 rounded cursor-pointer ${
+            className={`text-sm flex items-center space-x-2 p-1 px-2 rounded cursor-pointer ${
               focusedIndex === index ? 'bg-accent' : ''
             }`}
             onClick={(e) => {
@@ -91,11 +106,16 @@ export function CheckboxGroup({
               onCheckedChange={() => {
                 toggleOption(option);
               }}
-              tabIndex={-1} // 让容器处理焦点
+              tabIndex={-1}
             />
-            <span className="cursor-pointer flex-1 select-none">
+            <span className="cursor-pointer flex-1 select-none py-1">
               {option}
             </span>
+            {hasFocus && index < 9 && (
+              <kbd className="px-2 py-1 text-xs bg-background border rounded">
+                {index + 1}
+              </kbd>
+            )}
           </div>
         ))}
       </div>

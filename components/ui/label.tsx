@@ -226,7 +226,7 @@ const LabelKbd = React.forwardRef<HTMLElement, LabelKbdProps>(
     return (
       <kbd
         className={cn(
-          "ml-1 px-1 py-px bg-muted text-muted-foreground text-xs border rounded transition-all duration-200",
+          "hidden sm:inline-block ml-1 px-1 py-px bg-muted text-muted-foreground text-xs border rounded transition-all duration-200",
           className
         )}
         ref={ref}

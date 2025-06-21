@@ -31,6 +31,7 @@ import {
   RotateCcw,
   Copy,
   Keyboard,
+  Upload as UploadIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -43,6 +44,7 @@ import { Check, X } from "lucide-react";
 import { CheckboxGroup } from "./yaml-generator/CheckboxGroup";
 import { CollegeMultiSelect } from "./yaml-generator/CollegeMultiSelect";
 import { CourseNameInput } from "./yaml-generator/CourseNameInput";
+import FileUpload from "./file-upload";
 import { extractFileTypeFromURL, extractMD5FromURL, validateURLFileType, validateYear, validateYearRange } from "@/lib/validate";
 import { BookData, DocData, FileType, TestData, FormData } from "@/lib/types";
 import { generateYaml } from "@/lib/yaml";
@@ -101,6 +103,7 @@ export default function YamlGenerator() {
   const [selectedTypeIndex, setSelectedTypeIndex] = useState(0); // 用于键盘选择文件类型
   const [previousStep, setPreviousStep] = useState(1); // 跟踪上一个步骤
   const [showShortcuts, setShowShortcuts] = useState(false); // 快捷键帮助弹窗
+  const [inputMethod, setInputMethod] = useState<'url' | 'upload'>('upload'); // 输入方式选择，默认上传文件
   const [formData, setFormData] = useState<FormData>({
     id: "",
     url: "",
@@ -143,6 +146,7 @@ export default function YamlGenerator() {
   const resetFormCompletely = (type: FileType) => {
     setFileType(type);
     setUrlValidationError(""); // 清除验证错误
+    setInputMethod('upload'); // 重置为上传文件方式
     // 同步键盘选择索引
     const typeIndex = type === "book" ? 0 : type === "test" ? 1 : 2;
     setSelectedTypeIndex(typeIndex);
@@ -606,11 +610,7 @@ export default function YamlGenerator() {
         let elementToFocus: HTMLElement | null = null;
         
         if (step === 2) {
-          // 第二页：focus URL输入框
-          elementToFocus = document.getElementById('url');
-          if (elementToFocus && elementToFocus instanceof HTMLInputElement && !formData.url.trim()) {
-            elementToFocus.focus();
-          }
+          // 第二页：不自动focus，因为默认是上传文件模式
           return; // 提前返回，避免下面的通用focus逻辑
         } else if (step === 3) {
           // 第三页：根据文件类型focus第一个输入框，但只有当该元素为空时才focus
@@ -788,14 +788,115 @@ export default function YamlGenerator() {
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">基本信息</h2>
-        <p className="text-muted-foreground">填写文件的基本信息</p>
+        <h2 className="text-2xl font-bold">上传文件</h2>
+        <p className="text-muted-foreground">上传文件或粘贴文件链接</p>
         <Badge variant="outline">
           {fileType === "book" ? "书籍" : fileType === "test" ? "试题" : "资料"}
         </Badge>
       </div>
 
-      <div className="">
+      {/* 输入方式选择 */}
+      <div className="space-y-4">
+        <Label>选择输入方式</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              inputMethod === 'upload' ? "ring-2 ring-primary" : ""
+            }`}
+            onClick={() => setInputMethod('upload')}
+          >
+            <CardHeader className="text-center pb-3 relative">
+              <UploadIcon className="w-8 h-8 mx-auto text-green-500 dark:text-green-400" />
+              <CardTitle className="text-base">
+                上传文件
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-0 absolute top-2 right-3 pointer-events-none"
+                  onClick={() => setInputMethod('upload')}
+                >
+                  <ButtonKbd>1</ButtonKbd>
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <CardDescription className="text-sm text-center">
+                本地文件，需要上传
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              inputMethod === 'url' ? "ring-2 ring-primary" : ""
+            }`}
+            onClick={() => setInputMethod('url')}
+          >
+            <CardHeader className="text-center pb-3 relative">
+              <FileText className="w-8 h-8 mx-auto text-blue-500 dark:text-blue-400" />
+              <CardTitle className="text-base">
+                粘贴链接
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-0 absolute top-2 right-3 pointer-events-none"
+                  onClick={() => setInputMethod('url')}
+                >
+                  <ButtonKbd>2</ButtonKbd>
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <CardDescription className="text-sm text-center">
+                已有文件URL，直接粘贴
+              </CardDescription>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* 根据选择的方式显示不同的输入组件 */}
+      {inputMethod === 'upload' ? (
+        <div className="space-y-2">
+          <FileUpload
+            allowedTypes={fileType === "book" ? ["pdf"] : fileType === "test" ? ["pdf"] : ["pdf", "zip"]}
+            onUploadSuccess={(key) => {
+              // 构建完整的URL
+              const fullUrl = `https://byrdocs.org/files/${key}`;
+              const md5 = extractMD5FromURL(fullUrl);
+              const detectedFileType = extractFileTypeFromURL(fullUrl, fileType);
+              
+              setFormData((prev) => ({
+                ...prev,
+                url: fullUrl,
+                id: md5,
+                data: {
+                  ...prev.data,
+                  filetype: detectedFileType,
+                },
+              }));
+              
+              setUrlValidationError("");
+            }}
+            onUploadError={(error) => {
+              setUrlValidationError(`上传失败: ${error}`);
+            }}
+            initialUploadedKey={formData.url ? formData.url.split('/').pop() : undefined}
+            onReset={() => {
+              setFormData((prev) => ({
+                ...prev,
+                url: "",
+                id: "",
+                data: {
+                  ...prev.data,
+                  filetype: "pdf",
+                },
+              }));
+            }}
+            className="max-w-none"
+          />
+        </div>
+      ) : (
         <div className="space-y-2">
           <Label htmlFor="url">
             文件 URL *
@@ -841,7 +942,7 @@ export default function YamlGenerator() {
             <p className="text-xs text-red-500">{urlValidationError}</p>
           )}
         </div>
-      </div>
+      )}
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => {

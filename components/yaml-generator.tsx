@@ -1885,7 +1885,7 @@ export default function YamlGenerator() {
 
         <div className="mb-8">
           <div className="flex justify-center">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center">
               {[1, 2, 3, 4].map((stepNum) => (
                 <div key={stepNum} className="flex items-center">
                   <div
@@ -1899,7 +1899,7 @@ export default function YamlGenerator() {
                   </div>
                   {stepNum < 4 && (
                     <div
-                      className={`w-12 h-0.5 ${
+                      className={`w-10 sm:w-20 h-0.5 ${
                         step > stepNum ? "bg-primary" : "bg-muted"
                       }`}
                     />
@@ -1909,7 +1909,7 @@ export default function YamlGenerator() {
             </div>
           </div>
           <div className="flex justify-center mt-2">
-            <div className="flex space-x-16 text-sm text-muted-foreground">
+            <div className="flex text-xs sm:text-sm space-x-6 sm:space-x-[56px] text-muted-foreground">
               <span>选择类型</span>
               <span>基本信息</span>
               <span>详细信息</span>

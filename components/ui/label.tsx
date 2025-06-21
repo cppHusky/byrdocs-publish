@@ -92,7 +92,6 @@ const Label = React.forwardRef<
           event.preventDefault()
           const targetElement = document.getElementById(htmlFor)
           if (targetElement) {
-            console.log(targetElement)
             focusElement(targetElement)
           }
         }
@@ -117,7 +116,6 @@ const Label = React.forwardRef<
           
           const targetElement = document.getElementById(htmlFor)
           if (targetElement) {
-            console.log(targetElement)
             focusElement(targetElement)
           }
         } else {

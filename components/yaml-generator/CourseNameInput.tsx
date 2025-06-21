@@ -5,11 +5,13 @@ import { Input } from "../ui/input";
 export function CourseNameInput({
     value,
     onChange,
+    id,
     courseList,
     placeholder = "例如：概率论与数理统计",
     isHighlighted = false,
   }: {
     value: string;
+    id?: string;
     onChange: (value: string) => void;
     courseList: string[];
     placeholder?: string;
@@ -146,6 +148,7 @@ export function CourseNameInput({
     return (
       <div className="relative">
         <Input
+          id={id}
           className={`text-sm ${isHighlighted ? 'border-red-500 ring-1 ring-red-500' : ''}`}
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}

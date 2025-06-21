@@ -6,11 +6,13 @@ export function CheckboxGroup({
     options,
     selectedValues,
     onChange,
+    id,
     isHighlighted = false,
   }: {
     options: string[];
     selectedValues: string[];
     onChange: (values: string[]) => void;
+    id?: string;
     isHighlighted?: boolean;
   }) {
     const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -68,6 +70,7 @@ export function CheckboxGroup({
         onMouseLeave={handleMouseLeave}
         role="group"
         aria-label="复选框组"
+        id={id}
       >
         {options.map((option, index) => (
           <div

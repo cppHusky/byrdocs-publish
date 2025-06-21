@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { EscapeHandler } from '@/components/escape-handler'
 
 export const metadata: Metadata = {
   title: 'BYR Docs 元信息生成器',
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <body>
         <ThemeProvider>
+          <EscapeHandler />
           {children}
         </ThemeProvider>
       </body>

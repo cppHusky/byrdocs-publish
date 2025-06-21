@@ -32,8 +32,10 @@ const COLLEGES = [
 export function CollegeMultiSelect({
     selectedColleges,
     onCollegesChange,
+    id,
   }: {
     selectedColleges: string[];
+    id?: string;
     onCollegesChange: (colleges: string[]) => void;
   }) {
     const [open, setOpen] = useState(false);
@@ -53,7 +55,7 @@ export function CollegeMultiSelect({
     return (
       <div className="space-y-2" data-testid="college-multiselect">
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
+          <PopoverTrigger asChild id={id}>
             <Button
               variant="outline"
               role="combobox"

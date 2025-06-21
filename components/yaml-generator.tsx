@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import hljs from "highlight.js/lib/core";
 import yaml from "highlight.js/lib/languages/yaml";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, LabelKbd } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -594,12 +594,6 @@ export default function YamlGenerator() {
           createNewMetadata();
         }
       }
-
-      // 第四页：Cmd/Ctrl + C 复制YAML内容
-      if (step === 4 && cmdOrCtrl && e.key === 'c' && !isInSpecialComponent) {
-        e.preventDefault();
-        copyYamlToClipboard();
-      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -616,26 +610,30 @@ export default function YamlGenerator() {
         if (step === 2) {
           // 第二页：focus URL输入框
           elementToFocus = document.getElementById('url');
-          if (elementToFocus && elementToFocus instanceof HTMLInputElement) {
+          if (elementToFocus && elementToFocus instanceof HTMLInputElement && !formData.url.trim()) {
             elementToFocus.focus();
-            // 如果URL已有内容，则全选
-            if (formData.url.trim()) {
-              elementToFocus.select();
-            }
           }
           return; // 提前返回，避免下面的通用focus逻辑
         } else if (step === 3) {
-          // 第三页：根据文件类型focus第一个输入框
+          // 第三页：根据文件类型focus第一个输入框，但只有当该元素为空时才focus
           if (fileType === 'book') {
             elementToFocus = document.getElementById('title');
+            if (elementToFocus && elementToFocus instanceof HTMLInputElement && (formData.data as BookData).title?.trim()) {
+              elementToFocus = null; // 如果已有内容，不focus
+            }
           } else if (fileType === 'test') {
-            // 试题页面：focus到学院下拉框（但不触发下拉）
+            // 试题页面：focus到学院下拉框（但不触发下拉），只有当学院为空时才focus
             const collegeMultiSelect = document.querySelector('[data-testid="college-multiselect"] [role="combobox"]') as HTMLElement;
-            if (collegeMultiSelect) {
+            if (collegeMultiSelect && (formData.data as TestData).college?.length > 0) {
+              elementToFocus = null; // 如果已选择学院，不focus
+            } else {
               elementToFocus = collegeMultiSelect;
             }
           } else if (fileType === 'doc') {
             elementToFocus = document.getElementById('doc-title');
+            if (elementToFocus && elementToFocus instanceof HTMLInputElement && (formData.data as DocData).title?.trim()) {
+              elementToFocus = null; // 如果已有内容，不focus
+            }
           }
         }
         
@@ -667,9 +665,19 @@ export default function YamlGenerator() {
             resetForm("book");
           }}
         >
-          <CardHeader className="text-center pb-3 sm:pb-6">
+          <CardHeader className="text-center pb-3 sm:pb-6 relative">
             <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-blue-500 dark:text-blue-400" />
             <CardTitle className="text-base sm:text-lg">书籍 (Book)</CardTitle>
+            <Button
+              className="absolute top-0 right-0 pointer-events-none"
+              variant="ghost"
+              onClick={() => {
+                setSelectedTypeIndex(0);
+                resetForm("book");
+              }}
+            >
+              <ButtonKbd>1</ButtonKbd>
+            </Button>
           </CardHeader>
           <CardContent className="pt-0">
             <CardDescription className="text-sm mb-2 sm:mb-3">
@@ -696,9 +704,19 @@ export default function YamlGenerator() {
             resetForm("test");
           }}
         >
-          <CardHeader className="text-center pb-3 sm:pb-6">
+          <CardHeader className="text-center pb-3 sm:pb-6 relative">
             <ClipboardList className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-green-500 dark:text-green-400" />
             <CardTitle className="text-base sm:text-lg">试题 (Test)</CardTitle>
+            <Button
+              className="absolute top-0 right-0 pointer-events-none"
+              variant="ghost"
+              onClick={() => {
+                setSelectedTypeIndex(1);
+                resetForm("test");
+              }}
+            >
+              <ButtonKbd>2</ButtonKbd>
+            </Button>
           </CardHeader>
           <CardContent className="pt-0">
             <CardDescription className="text-sm mb-2 sm:mb-3">
@@ -725,9 +743,19 @@ export default function YamlGenerator() {
             resetForm("doc");
           }}
         >
-          <CardHeader className="text-center pb-3 sm:pb-6">
+          <CardHeader className="text-center pb-3 sm:pb-6 relative">
             <FileText className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-purple-500 dark:text-purple-400" />
             <CardTitle className="text-base sm:text-lg">资料 (Doc)</CardTitle>
+            <Button
+              className="absolute top-0 right-0 pointer-events-none"
+              variant="ghost"
+              onClick={() => {
+                setSelectedTypeIndex(2);
+                resetForm("doc");
+              }}
+            >
+              <ButtonKbd>3</ButtonKbd>
+            </Button>
           </CardHeader>
           <CardContent className="pt-0">
             <CardDescription className="text-sm mb-2 sm:mb-3">
@@ -753,6 +781,7 @@ export default function YamlGenerator() {
           setStep(2);
         }} size="lg">
           下一步：填写基本信息
+          <ButtonKbd>x</ButtonKbd>
         </Button>
       </div>
     </div>
@@ -770,37 +799,43 @@ export default function YamlGenerator() {
 
       <div className="">
         <div className="space-y-2">
-          <Label htmlFor="url">文件 URL *</Label>
-          <Input
-            id="url"
-            className="text-sm w-full"
-            placeholder="https://byrdocs.org/files/..."
-            value={formData.url}
-            onChange={(e) => {
-              const url = e.target.value;
-              const md5 = extractMD5FromURL(url);
-              
-              // 验证文件格式
-              const validation = validateURLFileType(url, fileType);
-              if (!validation.isValid && validation.error) {
-                setUrlValidationError(validation.error);
-              } else {
-                setUrlValidationError("");
-              }
-              
-              // 只有当URL不为空时才提取文件类型，否则使用默认的pdf
-              const detectedFileType = url.trim() ? extractFileTypeFromURL(url, fileType) : "pdf";
-              setFormData((prev) => ({
-                ...prev,
-                url: url,
-                id: md5,
-                data: {
-                  ...prev.data,
-                  filetype: detectedFileType,
-                },
-              }));
-            }}
-          />
+          <Label htmlFor="url">
+            文件 URL *
+            <LabelKbd>u</LabelKbd>
+          </Label>
+          <div className="relative">
+            <Input
+              id="url"
+              className="text-sm w-full pr-10"
+              placeholder="https://byrdocs.org/files/..."
+              value={formData.url}
+              onChange={(e) => {
+                const url = e.target.value;
+                const md5 = extractMD5FromURL(url);
+                
+                // 验证文件格式
+                const validation = validateURLFileType(url, fileType);
+                if (!validation.isValid && validation.error) {
+                  setUrlValidationError(validation.error);
+                } else {
+                  setUrlValidationError("");
+                }
+                
+                // 只有当URL不为空时才提取文件类型，否则使用默认的pdf
+                const detectedFileType = url.trim() ? extractFileTypeFromURL(url, fileType) : "pdf";
+                setFormData((prev) => ({
+                  ...prev,
+                  url: url,
+                  id: md5,
+                  data: {
+                    ...prev.data,
+                    filetype: detectedFileType,
+                  },
+                }));
+              }}
+            />
+            <kbd className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs bg-muted text-muted-foreground border rounded">⏎</kbd>
+          </div>
           <p className="text-xs text-muted-foreground">
             通过 byrdocs-cli 上传后得到的URL
           </p>
@@ -814,11 +849,14 @@ export default function YamlGenerator() {
         <Button variant="outline" onClick={() => {
           setPreviousStep(step); // 防止触发自动focus
           setStep(1);
-        }}>
+        }}
+        >
           上一步
+          <ButtonKbd>z</ButtonKbd>
         </Button>
         <Button onClick={() => setStep(3)} disabled={!validateStep2()}>
           下一步：填写详细信息
+          <ButtonKbd>x</ButtonKbd>
         </Button>
       </div>
     </div>
@@ -829,7 +867,10 @@ export default function YamlGenerator() {
     return (
       <div className="space-y-6">
         <div className="space-y-2" id="book-title">
-          <Label htmlFor="title">书名 *</Label>
+          <Label htmlFor="title">
+            书名 *
+            <LabelKbd>b</LabelKbd>
+          </Label>
           <Input
             id="title"
             className={`text-sm ${highlightedFields.includes('book-title') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
@@ -852,7 +893,10 @@ export default function YamlGenerator() {
         </div>
 
         <div className="space-y-2" id="book-authors">
-          <Label>作者 *</Label>
+          <Label htmlFor="authors-0">
+            作者 *
+            <LabelKbd>c</LabelKbd>
+          </Label>
           {data.authors.map((author, index) => (
             <div key={index} className="flex gap-2">
               <Input
@@ -871,10 +915,11 @@ export default function YamlGenerator() {
               {data.authors.length > 1 && (
                 <Button
                   variant="outline"
-                  size="icon"
+                  className="px-2"
                   onClick={() => removeArrayItem("authors", index)}
                 >
                   <Trash2 className="w-4 h-4" />
+                  {index < 9 && <ButtonKbd>{"s" + (index + 1)}</ButtonKbd>}
                 </Button>
               )}
             </div>
@@ -887,6 +932,7 @@ export default function YamlGenerator() {
           >
             <Plus className="w-4 h-4 mr-2" />
             添加作者
+            <ButtonKbd>a</ButtonKbd>
           </Button>
           <p className="text-xs text-muted-foreground">
             尽量使用原名，可酌情标注中译名
@@ -894,16 +940,21 @@ export default function YamlGenerator() {
         </div>
 
         <div className="space-y-2">
-          <Label>译者（可选）</Label>
+          <Label htmlFor={data.translators.length === 0 ? "add-translator" : "translators-0"}>
+            译者（可选）
+            <LabelKbd>h</LabelKbd>
+          </Label>
           {data.translators.length === 0 ? (
             <Button
               variant="outline"
               size="sm"
               onClick={() => addArrayItem("translators")}
               className="w-full"
+              id="add-translator"
             >
               <Plus className="w-4 h-4 mr-2" />
               添加译者
+              <ButtonKbd>t</ButtonKbd>
             </Button>
           ) : (
             <>
@@ -920,10 +971,14 @@ export default function YamlGenerator() {
                   />
                   <Button
                     variant="outline"
-                    size="icon"
+                    className="px-2"
                     onClick={() => removeArrayItem("translators", index)}
                   >
                     <Trash2 className="w-4 h-4" />
+                    {data.translators.length == 1 
+                      ? <ButtonKbd>{"e"}</ButtonKbd>
+                      : index < 9 && <ButtonKbd>{"e" + (index + 1)}</ButtonKbd>
+                    }
                   </Button>
                 </div>
               ))}
@@ -935,6 +990,7 @@ export default function YamlGenerator() {
               >
                 <Plus className="w-4 h-4 mr-2" />
                 添加译者
+                <ButtonKbd>t</ButtonKbd>
               </Button>
             </>
           )}
@@ -943,7 +999,10 @@ export default function YamlGenerator() {
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="edition">版次</Label>
+            <Label htmlFor="edition">
+              版次
+              <LabelKbd>f</LabelKbd>
+            </Label>
             <Input
               id="edition"
               className="text-sm"
@@ -959,7 +1018,10 @@ export default function YamlGenerator() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="publisher">出版社</Label>
+            <Label htmlFor="publisher">
+              出版社
+              <LabelKbd>g</LabelKbd>
+            </Label>
             <Input
               id="publisher"
               className="text-sm"
@@ -975,7 +1037,10 @@ export default function YamlGenerator() {
           </div>
 
           <div className="space-y-2" id="book-publish-year">
-            <Label htmlFor="publish_year">出版年份</Label>
+            <Label htmlFor="publish_year">
+              出版年份
+              <LabelKbd>j</LabelKbd>
+            </Label>
             <Input
               id="publish_year" 
               className={`text-sm ${
@@ -1012,7 +1077,10 @@ export default function YamlGenerator() {
         </div>
 
         <div className="space-y-2" id="book-isbn">
-          <Label>ISBN *</Label>
+          <Label htmlFor="isbn-0">
+            ISBN *
+            <LabelKbd>w</LabelKbd>
+          </Label>
           {data.isbn.map((isbn, index) => (
             <div key={index} className="space-y-1">
               <div className="flex gap-2">
@@ -1059,10 +1127,11 @@ export default function YamlGenerator() {
                 {data.isbn.length > 1 && (
                   <Button
                     variant="outline"
-                    size="icon"
+                    className="px-2"
                     onClick={() => removeArrayItem("isbn", index)}
                   >
                     <Trash2 className="w-4 h-4" />
+                    {index < 9 && <ButtonKbd>{"d" + (index + 1)}</ButtonKbd>}
                   </Button>
                 )}
               </div>
@@ -1080,7 +1149,8 @@ export default function YamlGenerator() {
             className="w-full"
           >
             <Plus className="w-4 h-4 mr-2" />
-            添加ISBN
+            添加 ISBN
+            <ButtonKbd>i</ButtonKbd>
           </Button>
           <p className="text-xs text-muted-foreground">
             支持 ISBN-10 和 ISBN-13 格式
@@ -1095,8 +1165,12 @@ export default function YamlGenerator() {
     return (
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label>学院</Label>
+          <Label htmlFor="school">
+            学院
+            <LabelKbd>s</LabelKbd>
+          </Label>
           <CollegeMultiSelect
+            id="school"
             selectedColleges={data.college.filter((c) => c.trim())}
             onCollegesChange={(colleges) =>
               setFormData((prev) => ({
@@ -1114,7 +1188,10 @@ export default function YamlGenerator() {
           <Label>课程信息</Label>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="course-type">课程类型</Label>
+              <Label htmlFor="course-type">
+                课程类型
+                <LabelKbd>c</LabelKbd>
+              </Label>
               <div className="flex gap-2">
                 <Select
                   value={data.course.type}
@@ -1131,7 +1208,7 @@ export default function YamlGenerator() {
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="course-type">
                     <SelectValue placeholder="选择课程类型" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1163,8 +1240,12 @@ export default function YamlGenerator() {
             </div>
 
             <div className="space-y-2" id="test-course-name">
-              <Label htmlFor="course-name">课程名称 *</Label>
+              <Label htmlFor="course-name">
+                课程名称 *
+                <LabelKbd>t</LabelKbd>
+              </Label>
               <CourseNameInput
+                id="course-name"
                 value={data.course.name}
                 onChange={(value) => {
                   setFormData((prev) => ({
@@ -1194,7 +1275,10 @@ export default function YamlGenerator() {
           <Label>时间信息 *</Label>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="start-year">开始年份</Label>
+              <Label htmlFor="start-year">
+                开始年份
+                <LabelKbd>b</LabelKbd>
+              </Label>
               <Input
                 id="start-year"
                 className={`text-sm ${
@@ -1228,7 +1312,10 @@ export default function YamlGenerator() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="end-year">结束年份</Label>
+              <Label htmlFor="end-year">
+                结束年份
+                <LabelKbd>e</LabelKbd>
+              </Label>
               <Input
                 id="end-year"
                 className={`text-sm ${
@@ -1271,7 +1358,10 @@ export default function YamlGenerator() {
             );
           })()}
             <div className="space-y-2">
-              <Label htmlFor="semester">学期</Label>
+              <Label htmlFor="semester">
+                学期
+                <LabelKbd>f</LabelKbd>
+              </Label>
               <div className="flex gap-2">
                 <Select
                   value={data.time.semester}
@@ -1288,7 +1378,7 @@ export default function YamlGenerator() {
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="semester">
                     <SelectValue placeholder="选择学期" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1320,7 +1410,10 @@ export default function YamlGenerator() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stage">考试阶段</Label>
+              <Label htmlFor="stage">
+                考试阶段
+                <LabelKbd>g</LabelKbd>
+              </Label>
               <div className="flex gap-2">
                 <Select
                   value={data.time.stage}
@@ -1334,7 +1427,7 @@ export default function YamlGenerator() {
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="stage">
                     <SelectValue placeholder="选择考试阶段" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1365,8 +1458,12 @@ export default function YamlGenerator() {
         </div>
 
         <div className="space-y-2" id="test-content">
-          <Label>内容类型 *</Label>
+          <Label htmlFor="test-content">
+            内容类型 *
+            <LabelKbd>h</LabelKbd>
+          </Label>
           <CheckboxGroup
+            id="test-content"
             options={["原题", "答案"]}
             selectedValues={data.content}
             onChange={(newContent: string[]) => {
@@ -1395,7 +1492,10 @@ export default function YamlGenerator() {
     return (
       <div className="space-y-6">
         <div className="space-y-2" id="doc-title-div">
-          <Label htmlFor="doc-title">资料标题 *</Label>
+          <Label htmlFor="doc-title">
+            资料标题 *
+            <LabelKbd>t</LabelKbd>
+          </Label>
           <Input
             id="doc-title"
             className={`text-sm ${highlightedFields.includes('doc-title') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
@@ -1444,13 +1544,18 @@ export default function YamlGenerator() {
                         }
                       >
                         <Trash2 className="w-4 h-4" />
+                        <ButtonKbd>{"d" + (index + 1).toString()}</ButtonKbd>
                       </Button>
                     )}
                   </div>
                   
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>课程类型</Label>
+                      <Label htmlFor={`course-type-${index}`}>
+                        课程类型
+                        {data.course.length == 1 && <LabelKbd>{"e"}</LabelKbd>}
+                        {data.course.length > 1 && index < 9 && <LabelKbd>{"e" + (index + 1).toString()}</LabelKbd>}
+                      </Label>
                       <div className="flex gap-2">
                         <Select
                           value={course.type}
@@ -1466,7 +1571,7 @@ export default function YamlGenerator() {
                             }))
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id={`course-type-${index}`}>
                             <SelectValue placeholder="选择课程类型" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1497,8 +1602,13 @@ export default function YamlGenerator() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>课程名称 *</Label>
+                      <Label htmlFor={`course-name-${index}`}>
+                        课程名称 *
+                        {data.course.length == 1 && <LabelKbd>{"n"}</LabelKbd>}
+                        {data.course.length > 1 && index < 9 && <LabelKbd>{"n" + (index + 1).toString()}</LabelKbd>}
+                      </Label>
                       <CourseNameInput
+                        id={`course-name-${index}`}
                         value={course.name}
                         onChange={(value) => {
                           setFormData((prev) => ({
@@ -1557,12 +1667,17 @@ export default function YamlGenerator() {
           >
             <Plus className="w-4 h-4 mr-2" />
             添加课程
+            <ButtonKbd>c</ButtonKbd>
           </Button>
         </div>
 
         <div className="space-y-2" id="doc-content">
-          <Label>内容类型 *</Label>
+          <Label htmlFor="doc-content">
+            内容类型 *
+            <LabelKbd>h</LabelKbd>
+          </Label>
           <CheckboxGroup
+            id="doc-content"
             options={["思维导图", "题库", "答案", "知识点", "课件"]}
             selectedValues={data.content}
             onChange={(newContent: string[]) => {
@@ -1610,8 +1725,10 @@ export default function YamlGenerator() {
                       <Button variant="outline" onClick={() => {
             setPreviousStep(step); // 防止触发自动focus
             setStep(2);
-          }}>
+          }}
+          >
             上一步
+            <ButtonKbd>z</ButtonKbd>
           </Button>
             <Button onClick={() => {
               if (validateStep3()) {
@@ -1644,8 +1761,10 @@ export default function YamlGenerator() {
                   }, 100);
                 }
               }
-            }}>
+            }}
+            >
               下一步：预览和下载
+              <ButtonKbd>x</ButtonKbd>
             </Button>
           </div>
         </div>
@@ -1674,7 +1793,7 @@ export default function YamlGenerator() {
           size="sm"
           variant="outline"
           onClick={copyYamlToClipboard}
-          className="absolute top-2 right-2 h-8 w-8 p-0"
+          className="absolute top-2 right-2 h-8 w-14 p-0"
           title={isCopied ? "已复制!" : "复制YAML内容"}
         >
           {isCopied ? (
@@ -1682,6 +1801,7 @@ export default function YamlGenerator() {
           ) : (
             <Copy className="h-4 w-4" />
           )}
+          <ButtonKbd>c</ButtonKbd>
         </Button>
       </div>
       <div className="flex justify-between">
@@ -1690,8 +1810,10 @@ export default function YamlGenerator() {
             <Button variant="outline" onClick={() => {
               setPreviousStep(step); // 防止触发自动focus
               setStep(3);
-            }}>
+            }}
+            >
               上一步
+              <ButtonKbd>z</ButtonKbd>
             </Button>
             <Button
               onClick={downloadYaml}
@@ -1699,6 +1821,7 @@ export default function YamlGenerator() {
             >
               <Download className="w-4 h-4 mr-1" />
               下载 YAML 文件
+              <ButtonKbd>d</ButtonKbd>
             </Button>
           </>
         ) : (
@@ -1706,8 +1829,10 @@ export default function YamlGenerator() {
             <Button variant="outline" onClick={() => {
               setPreviousStep(step); // 防止触发自动focus
               setStep(3);
-            }}>
+            }}
+            >
               上一步
+              <ButtonKbd>z</ButtonKbd>
             </Button>
             <div className="flex gap-2">
               <Button
@@ -1717,6 +1842,7 @@ export default function YamlGenerator() {
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 创建新的元信息
+                <ButtonKbd>n</ButtonKbd>
               </Button>
               <Button
                 onClick={downloadYaml}
@@ -1724,6 +1850,7 @@ export default function YamlGenerator() {
               >
                 <Download className="w-4 h-4 mr-1" />
                 重新下载
+                <ButtonKbd>d</ButtonKbd>
               </Button>
             </div>
           </>
@@ -1733,7 +1860,8 @@ export default function YamlGenerator() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 p-4">
+    <ShortcutProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 p-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center my-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">
@@ -1851,7 +1979,7 @@ export default function YamlGenerator() {
               </div>
             </div>
 
-            {/* 当前页面快捷键 */}
+            {step !== 3 && 
             <div className="space-y-3">
               <h3 className="text-lg font-semibold">当前页面快捷键</h3>
               <div className="grid gap-3">
@@ -1866,14 +1994,6 @@ export default function YamlGenerator() {
                         <kbd className="px-2 py-1 text-xs bg-background border rounded">→</kbd>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm">确认选择并进入下一步</span>
-                      <div className="flex items-center gap-1">
-                        <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
-                        <span className="text-xs">或</span>
-                        <kbd className="px-2 py-1 text-xs bg-background border rounded">Space</kbd>
-                      </div>
-                    </div>
                   </>
                 )}
                 
@@ -1881,13 +2001,6 @@ export default function YamlGenerator() {
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">填写完 URL 后进入下一步</span>
                     <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
-                  </div>
-                )}
-                
-                {step === 3 && (
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    组合使用 <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>，
-                    <kbd className="px-2 py-1 text-xs bg-background border rounded">Tab</kbd> 等常用快捷键，复选框列表可使用上下箭头切换选项，空格键切换选中状态
                   </div>
                 )}
                 
@@ -1900,18 +2013,17 @@ export default function YamlGenerator() {
                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <span className="text-sm">复制YAML内容</span>
                       <div className="flex items-center gap-1">
-                        <kbd className="px-2 py-1 text-xs bg-background border rounded">Cmd/Ctrl</kbd>
-                        <span className="text-xs">+</span>
                         <kbd className="px-2 py-1 text-xs bg-background border rounded">C</kbd>
                       </div>
                     </div>
                   </>
                 )}
               </div>
-            </div>
+            </div>}
           </div>
         </DialogContent>
       </Dialog>
     </div>
+    </ShortcutProvider>
   );
 }

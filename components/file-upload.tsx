@@ -455,6 +455,7 @@ export default function FileUpload({
           >
             <ExternalLink className="w-4 h-4 mr-2" />
             使用 BYR Docs 登录
+            <ButtonKbd invert={true}>l</ButtonKbd>
           </Button>
         </CardContent>
       </Card>

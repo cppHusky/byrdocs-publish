@@ -2036,6 +2036,7 @@ export default function YamlGenerator() {
             title="快捷键帮助"
           >
             <Keyboard className="w-4 h-4" />
+            <ButtonKbd className="sm:hidden">?</ButtonKbd>
           </Button>
           <CardContent className="p-8">
             {step === 1 && renderStep1()}

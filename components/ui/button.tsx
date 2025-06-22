@@ -89,7 +89,7 @@ export const ShortcutProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // Check if any modifier keys are pressed
-      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+      if (event.ctrlKey || event.metaKey || event.altKey) {
         return
       }
 

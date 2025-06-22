@@ -1003,7 +1003,7 @@ export default function YamlGenerator() {
         <div className="space-y-2" id="book-authors">
           <Label htmlFor="authors-0">
             作者 *
-            <LabelKbd>c</LabelKbd>
+            <LabelKbd>a</LabelKbd>
           </Label>
           {data.authors.map((author, index) => (
             <div key={index} className="flex gap-2">
@@ -1040,7 +1040,7 @@ export default function YamlGenerator() {
           >
             <Plus className="w-4 h-4 mr-2" />
             添加作者
-            <ButtonKbd>a</ButtonKbd>
+            <ButtonKbd>q</ButtonKbd>
           </Button>
           <p className="text-xs text-muted-foreground">
             尽量使用原名，可酌情标注中译名
@@ -1050,7 +1050,7 @@ export default function YamlGenerator() {
         <div className="space-y-2">
           <Label htmlFor={data.translators.length === 0 ? "add-translator" : "translators-0"}>
             译者（可选）
-            <LabelKbd>h</LabelKbd>
+            <LabelKbd>t</LabelKbd>
           </Label>
           {data.translators.length === 0 ? (
             <Button
@@ -1062,7 +1062,7 @@ export default function YamlGenerator() {
             >
               <Plus className="w-4 h-4 mr-2" />
               添加译者
-              <ButtonKbd>t</ButtonKbd>
+              <ButtonKbd>y</ButtonKbd>
             </Button>
           ) : (
             <>
@@ -1098,7 +1098,7 @@ export default function YamlGenerator() {
               >
                 <Plus className="w-4 h-4 mr-2" />
                 添加译者
-                <ButtonKbd>t</ButtonKbd>
+                <ButtonKbd>y</ButtonKbd>
               </Button>
             </>
           )}
@@ -1109,7 +1109,7 @@ export default function YamlGenerator() {
           <div className="space-y-2">
             <Label htmlFor="edition">
               版次
-              <LabelKbd>f</LabelKbd>
+              <LabelKbd>q</LabelKbd>
             </Label>
             <Input
               id="edition"
@@ -1128,7 +1128,7 @@ export default function YamlGenerator() {
           <div className="space-y-2">
             <Label htmlFor="publisher">
               出版社
-              <LabelKbd>g</LabelKbd>
+              <LabelKbd>c</LabelKbd>
             </Label>
             <Input
               id="publisher"
@@ -1147,7 +1147,7 @@ export default function YamlGenerator() {
           <div className="space-y-2" id="book-publish-year">
             <Label htmlFor="publish_year">
               出版年份
-              <LabelKbd>j</LabelKbd>
+              <LabelKbd>f</LabelKbd>
             </Label>
             <Input
               id="publish_year" 
@@ -1187,7 +1187,7 @@ export default function YamlGenerator() {
         <div className="space-y-2" id="book-isbn">
           <Label htmlFor="isbn-0">
             ISBN *
-            <LabelKbd>w</LabelKbd>
+            <LabelKbd>i</LabelKbd>
           </Label>
           {data.isbn.map((isbn, index) => (
             <div key={index} className="space-y-1">
@@ -1258,7 +1258,7 @@ export default function YamlGenerator() {
           >
             <Plus className="w-4 h-4 mr-2" />
             添加 ISBN
-            <ButtonKbd>i</ButtonKbd>
+            <ButtonKbd>w</ButtonKbd>
           </Button>
           <p className="text-xs text-muted-foreground">
             支持 ISBN-10 和 ISBN-13 格式
@@ -2085,6 +2085,18 @@ export default function YamlGenerator() {
                     <kbd className="px-2 py-1 text-xs bg-background border rounded">Cmd/Ctrl</kbd>
                     <span className="text-xs">+</span>
                     <kbd className="px-2 py-1 text-xs bg-background border rounded">→</kbd>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm">向下翻页</span>
+                  <div className="flex items-center gap-1">
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">j</kbd>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm">向上翻页</span>
+                  <div className="flex items-center gap-1">
+                    <kbd className="px-2 py-1 text-xs bg-background border rounded">k</kbd>
                   </div>
                 </div>
               </div>

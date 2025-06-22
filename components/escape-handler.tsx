@@ -1,14 +1,19 @@
- "use client"
+"use client"
 
 import { useEffect } from 'react'
 
 export function EscapeHandler() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Skip if user is typing in an input field
+      const activeElement = document.activeElement as HTMLElement
+      const isInputField = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true'
+      )
+
       if (event.key === 'Escape') {
-        // Get the currently focused element
-        const activeElement = document.activeElement as HTMLElement
-        
         if (activeElement && activeElement !== document.body) {
           // Blur the currently focused element
           activeElement.blur()
@@ -17,6 +22,14 @@ export function EscapeHandler() {
           document.body.focus()
           
           // Prevent default behavior
+          event.preventDefault()
+        }
+      } else if (!isInputField) {
+        if (event.key === 'j') {
+          window.scrollBy({ top: 200 })
+          event.preventDefault()
+        } else if (event.key === 'k') {
+          window.scrollBy({ top: -200 })
           event.preventDefault()
         }
       }

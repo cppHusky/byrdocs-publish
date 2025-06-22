@@ -83,6 +83,11 @@ const Label = React.forwardRef<
         return
       }
 
+      // Check if any modifier keys are pressed (ctrl, meta, alt, command)
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return
+      }
+
       const normalizedEventKey = event.key.toLowerCase()
       const shortcutKeys = shortcut.split('')
       

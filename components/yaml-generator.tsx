@@ -815,7 +815,15 @@ export default function YamlGenerator() {
                   variant="ghost"
                   size="sm"
                   className="px-0 absolute top-2 right-3 pointer-events-none"
-                  onClick={() => setInputMethod('upload')}
+                  onClick={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      url: "",
+                      id: "",
+                    }))
+                    setUploadedFileInfo(null)
+                    setInputMethod('upload')
+                  }}
                 >
                   <ButtonKbd>1</ButtonKbd>
                 </Button>
@@ -888,6 +896,23 @@ export default function YamlGenerator() {
             onUploadError={(error) => {
               setUrlValidationError(`上传失败: ${error}`);
             }}
+            onSwitchToUrl={(url: string) => {
+              setInputMethod('url');
+              const md5 = extractMD5FromURL(url);
+              const detectedFileType = extractFileTypeFromURL(url, fileType);
+              
+              setFormData((prev) => ({
+                type: prev.type,
+                url: url,
+                id: md5,
+                data: {
+                  ...prev.data,
+                  filetype: detectedFileType,
+                },
+              }));
+              
+              setUrlValidationError("");
+            }}
             initialUploadedKey={formData.url ? formData.url.split('/').pop() : undefined}
             initialFileInfo={uploadedFileInfo}
             onReset={() => {
@@ -945,7 +970,7 @@ export default function YamlGenerator() {
             <kbd className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs bg-muted text-muted-foreground border rounded">⏎</kbd>
           </div>
           <p className="text-xs text-muted-foreground">
-            通过 byrdocs-cli 上传后得到的URL
+            已上传文件的 URL
           </p>
           {urlValidationError && (
             <p className="text-xs text-red-500">{urlValidationError}</p>

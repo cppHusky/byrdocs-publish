@@ -17,7 +17,6 @@ import {
   ExternalLink,
   User,
   AlertCircle,
-  CheckCircle,
 } from "lucide-react";
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
@@ -32,6 +31,7 @@ interface FileUploadProps {
   initialUploadedKey?: string; // 初始已上传的文件key
   initialFileInfo?: { name: string; size: number } | null; // 初始文件信息
   onReset?: () => void; // 重置回调
+  onSwitchToUrl?: (url: string) => void; // 切换到粘贴链接模式的回调
 }
 
 interface S3Credentials {
@@ -42,6 +42,7 @@ interface S3Credentials {
 
 interface S3UploadResponse {
   success: boolean;
+  code?: string;
   key?: string;
   host?: string;
   bucket?: string;
@@ -49,8 +50,6 @@ interface S3UploadResponse {
   credentials?: S3Credentials;
   error?: string;
 }
-
-
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -61,7 +60,8 @@ export default function FileUpload({
   className,
   initialUploadedKey,
   initialFileInfo,
-  onReset
+  onReset,
+  onSwitchToUrl
 }: FileUploadProps) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -73,6 +73,7 @@ export default function FileUpload({
   const [isDragOver, setIsDragOver] = useState(false);
   const [highlightTypes, setHighlightTypes] = useState(false);
   const [uploadedKey, setUploadedKey] = useState<string>(''); // 保存上传成功的key
+  const [fileExistsError, setFileExistsError] = useState<{ md5: string; extension: string } | null>(null); // 文件已存在错误信息
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -107,11 +108,12 @@ export default function FileUpload({
         const extension = keyParts[keyParts.length - 1];
         const md5 = keyParts.slice(0, -1).join('.');
         setMd5Hash(md5);
-        // 使用传入的文件信息或创建默认信息
-        const fileName = initialFileInfo?.name || `uploaded-file.${extension}`;
-        const fileSize = initialFileInfo?.size || 0;
+        if (!initialFileInfo?.name || !initialFileInfo?.size) {
+          return;
+        }
+        const fileName = initialFileInfo?.name;
+        const fileSize = initialFileInfo?.size;
         const virtualFile = new File([], fileName, { type: `application/${extension}` });
-        // 手动设置文件大小（通过Object.defineProperty因为File对象的size是只读的）
         Object.defineProperty(virtualFile, 'size', { value: fileSize, writable: false });
         setSelectedFile(virtualFile);
       }
@@ -227,7 +229,6 @@ export default function FileUpload({
     });
 
     upload.on("httpUploadProgress", (progress) => {
-      console.log(progress);
       if (progress.total) {
         const percentage = Math.round((progress.loaded! / progress.total) * 100);
         setUploadProgress(percentage);
@@ -265,6 +266,7 @@ export default function FileUpload({
     setUploadProgress(0);
     setErrorMessage('');
     setMd5Hash('');
+    setFileExistsError(null);
     
     // Create new abort controller for MD5 calculation
     abortControllerRef.current = new AbortController();
@@ -334,6 +336,12 @@ export default function FileUpload({
       const s3Config = await getS3Credentials(key, abortControllerRef.current.signal);
       
       if (!s3Config.success) {
+        if (s3Config.code === 'FILE_EXISTS') {
+          const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
+          setFileExistsError({ md5: md5Hash, extension: fileExtension || 'pdf' });
+          setUploadStatus('error');
+          return;
+        }
         throw new Error(s3Config.error || '获取上传凭证失败');
       }
 
@@ -371,6 +379,7 @@ export default function FileUpload({
     setErrorMessage('');
     setMd5Hash('');
     setUploadedKey('');
+    setFileExistsError(null); // 重置文件已存在错误
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -382,6 +391,24 @@ export default function FileUpload({
     
     // 调用父组件的重置回调
     onReset?.();
+  };
+
+  const handleUseExistingFile = () => {
+    if (fileExistsError && onSwitchToUrl) {
+      const url = `https://byrdocs.org/files/${fileExistsError.md5}.${fileExistsError.extension}`;
+      
+      setSelectedFile(null);
+      onReset?.();
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      onSwitchToUrl(url);
+    }
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -474,7 +501,7 @@ export default function FileUpload({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!selectedFile ? (
+        {selectedFile === null? (
           <div className="space-y-4">
             <div 
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
@@ -589,7 +616,22 @@ export default function FileUpload({
               <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
                 <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 text-sm text-red-600">
-                  {errorMessage}
+                  {fileExistsError ? (
+                    <div className="space-y-2">
+                      <div>文件已存在</div>
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                        onClick={handleUseExistingFile}
+                      >
+                        使用该文件
+                        <ButtonKbd>r</ButtonKbd>
+                      </Button>
+                    </div>
+                  ) : (
+                    errorMessage
+                  )}
                 </div>
               </div>
             )}

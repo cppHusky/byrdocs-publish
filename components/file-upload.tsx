@@ -560,6 +560,7 @@ export default function FileUpload({
                 disabled={uploadStatus === 'calculating' || uploadStatus === 'preparing' || uploadStatus === 'uploading'}
               >
                 <Trash2 className="w-4 h-4" />
+                <ButtonKbd>d</ButtonKbd>
               </Button>
             </div>
 

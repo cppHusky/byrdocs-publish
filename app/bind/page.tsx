@@ -158,7 +158,7 @@ export default function GitHubSetupPage() {
   };
 
   // Show loading state while checking authentication
-  if (isLoading) {
+  if (isLoading && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center text-muted-foreground">

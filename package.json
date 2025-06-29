@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "cf-build": "prisma generate && @cloudflare/next-on-pages@1",
+    "cf-build": "prisma generate && pnpm dlx @cloudflare/next-on-pages@1",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",

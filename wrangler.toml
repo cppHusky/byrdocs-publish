@@ -1,7 +1,7 @@
 name = "byrdocs-publish"
 compatibility_date = "2025-03-06"
 compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
-pages_build_output_dir = "out"
+pages_build_output_dir = ".vercel/output/static"
 
 [[d1_databases]]
 binding = "DB"

@@ -98,11 +98,20 @@ body {
   font-family: 'Courier New', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
 }
 
-.yaml-light {
+/* Line numbers should use monospace font */
+.diff-line-number {
+  font-family: 'Courier New', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Only apply background for standalone YAML blocks, not in diffs */
+.yaml-light:not(.yaml-created):not(.yaml-deleted):not(.yaml-diff) {
   @apply bg-gray-50 border-gray-200;
 }
 
-.yaml-dark {
+.yaml-dark:not(.yaml-created):not(.yaml-deleted):not(.yaml-diff) {
   @apply bg-gray-900 border-gray-700;
 }
 
@@ -162,4 +171,126 @@ body {
 
 .yaml-dark .hljs-keyword {
   color: #f472b6 !important;
+}
+
+/* YAML highlighting for created files (green background) */
+.yaml-created .hljs {
+  background: transparent !important;
+}
+
+.yaml-created.yaml-light .hljs {
+  color: #166534 !important; /* darker green for readability */
+}
+
+.yaml-created.yaml-light .hljs-attr {
+  color: #1d4ed8 !important; /* blue attributes */
+}
+
+.yaml-created.yaml-light .hljs-string {
+  color: #047857 !important; /* green strings */
+}
+
+.yaml-created.yaml-light .hljs-number {
+  color: #c2410c !important; /* orange numbers */
+}
+
+.yaml-created.yaml-light .hljs-literal {
+  color: #6b21a8 !important; /* purple literals */
+}
+
+.yaml-created.yaml-light .hljs-comment {
+  color: #4b5563 !important; /* gray comments */
+}
+
+.yaml-created.yaml-light .hljs-keyword {
+  color: #b91c1c !important; /* red keywords */
+}
+
+.yaml-created.yaml-dark .hljs {
+  color: #bbf7d0 !important; /* light green for dark theme */
+}
+
+.yaml-created.yaml-dark .hljs-attr {
+  color: #60a5fa !important; /* blue attributes */
+}
+
+.yaml-created.yaml-dark .hljs-string {
+  color: #34d399 !important; /* green strings */
+}
+
+.yaml-created.yaml-dark .hljs-number {
+  color: #f59e0b !important; /* orange numbers */
+}
+
+.yaml-created.yaml-dark .hljs-literal {
+  color: #a78bfa !important; /* purple literals */
+}
+
+.yaml-created.yaml-dark .hljs-comment {
+  color: #9ca3af !important; /* gray comments */
+}
+
+.yaml-created.yaml-dark .hljs-keyword {
+  color: #f472b6 !important; /* pink keywords */
+}
+
+/* YAML highlighting for deleted files (red background) */
+.yaml-deleted .hljs {
+  background: transparent !important;
+}
+
+.yaml-deleted.yaml-light .hljs {
+  color: #7f1d1d !important; /* darker red for readability */
+}
+
+.yaml-deleted.yaml-light .hljs-attr {
+  color: #1d4ed8 !important; /* blue attributes */
+}
+
+.yaml-deleted.yaml-light .hljs-string {
+  color: #047857 !important; /* green strings */
+}
+
+.yaml-deleted.yaml-light .hljs-number {
+  color: #c2410c !important; /* orange numbers */
+}
+
+.yaml-deleted.yaml-light .hljs-literal {
+  color: #6b21a8 !important; /* purple literals */
+}
+
+.yaml-deleted.yaml-light .hljs-comment {
+  color: #4b5563 !important; /* gray comments */
+}
+
+.yaml-deleted.yaml-light .hljs-keyword {
+  color: #b91c1c !important; /* red keywords */
+}
+
+.yaml-deleted.yaml-dark .hljs {
+  color: #fecaca !important; /* light red for dark theme */
+}
+
+.yaml-deleted.yaml-dark .hljs-attr {
+  color: #60a5fa !important; /* blue attributes */
+}
+
+.yaml-deleted.yaml-dark .hljs-string {
+  color: #34d399 !important; /* green strings */
+}
+
+.yaml-deleted.yaml-dark .hljs-number {
+  color: #f59e0b !important; /* orange numbers */
+}
+
+.yaml-deleted.yaml-dark .hljs-literal {
+  color: #a78bfa !important; /* purple literals */
+}
+
+.yaml-deleted.yaml-dark .hljs-comment {
+  color: #9ca3af !important; /* gray comments */
+}
+
+.yaml-deleted.yaml-dark .hljs-keyword {
+  color: #f472b6 !important; /* pink keywords */
 }

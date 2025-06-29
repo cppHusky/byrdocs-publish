@@ -25,11 +25,14 @@ export function EscapeHandler() {
           event.preventDefault()
         }
       } else if (!isInputField) {
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+          return
+        }
         if (event.key === 'j') {
-          window.scrollBy({ top: 200 })
+          window.scrollBy({ top: 300, behavior: 'smooth' })
           event.preventDefault()
         } else if (event.key === 'k') {
-          window.scrollBy({ top: -200 })
+          window.scrollBy({ top: -300, behavior: 'smooth' })
           event.preventDefault()
         }
       }

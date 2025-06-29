@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import hljs from "highlight.js/lib/core";
 import yaml from "highlight.js/lib/languages/yaml";
-import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
+import { Button, ButtonKbd } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -29,9 +30,10 @@ import {
   Plus,
   Trash2,
   RotateCcw,
-  Copy,
   Keyboard,
   Upload as UploadIcon,
+  RefreshCw,
+  CheckCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -40,20 +42,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import { CheckboxGroup } from "./yaml-generator/CheckboxGroup";
 import { CollegeMultiSelect } from "./yaml-generator/CollegeMultiSelect";
 import { CourseNameInput } from "./yaml-generator/CourseNameInput";
 import FileUpload from "./file-upload";
-import { extractFileTypeFromURL, extractMD5FromURL, validateURLFileType, validateYear, validateYearRange } from "@/lib/validate";
+import { extractFileTypeFromURL, extractMD5FromURL, extractFileNameFromURL, validateURLFileType, validateYear, validateYearRange } from "@/lib/validate";
 import { BookData, DocData, FileType, TestData, FormData } from "@/lib/types";
 import { generateYaml } from "@/lib/yaml";
 import { validateISBN, formatISBN } from "@/lib/isbn";
 import { useTheme } from "./theme-provider";
-
+import { createFileChange } from "@/app/file-changes/actions";
+import { useAuth } from "@/components/auth-provider";
+import { CopyButton } from "./copy-button";
 
 export default function YamlGenerator() {
   const { actualTheme } = useTheme();
+  const { user } = useAuth();
+  const router = useRouter();
   // 课程列表状态
   const [courseList, setCourseList] = useState<string[]>([]);
 
@@ -65,7 +71,7 @@ export default function YamlGenerator() {
     const fetchCourseData = async () => {
       try {
         const response = await fetch('https://files.byrdocs.org/metadata2.json');
-        const data = await response.json();
+        const data: any = await response.json();
         
         // 提取所有课程名称
         const courses = new Set<string>();
@@ -98,7 +104,8 @@ export default function YamlGenerator() {
   const [fileType, setFileType] = useState<FileType>("book");
   const [urlValidationError, setUrlValidationError] = useState<string>("");
   const [hasDownloaded, setHasDownloaded] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
   const [selectedTypeIndex, setSelectedTypeIndex] = useState(0); // 用于键盘选择文件类型
   const [previousStep, setPreviousStep] = useState(1); // 跟踪上一个步骤
@@ -121,6 +128,34 @@ export default function YamlGenerator() {
     } as BookData,
   });
 
+  const submitYaml = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    setSubmissionSuccess(false);
+    try {
+      const yamlContent = generateYaml(fileType, formData);
+      
+      await createFileChange({
+        filename: `${formData.id}.yml`,
+        md5Hash: formData.id,
+        status: 'created',
+        content: yamlContent,
+      });
+      
+      // 设置已提交状态和成功状态
+      setHasDownloaded(true);
+      setSubmissionSuccess(true);
+      
+      // 不自动隐藏成功提示，让用户手动操作
+    } catch (error) {
+      console.error('Failed to submit YAML:', error);
+      // TODO: Show error message to user
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const downloadYaml = () => {
     const yamlContent = generateYaml(fileType, formData);
     const blob = new Blob([yamlContent], { type: "text/yaml" });
@@ -132,15 +167,13 @@ export default function YamlGenerator() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
-    // 设置已下载状态
-    setHasDownloaded(true);
   };
 
   const createNewMetadata = () => {
     // 重置所有状态
     setStep(1);
     setUrlValidationError("");
+    setSubmissionSuccess(false);
     resetFormCompletely("book");
   };
 
@@ -191,20 +224,6 @@ export default function YamlGenerator() {
     });
   };
 
-  const copyYamlToClipboard = async () => {
-    try {
-      const yamlContent = generateYaml(fileType, formData);
-      await navigator.clipboard.writeText(yamlContent);
-      setIsCopied(true);
-      
-      // 2秒后重置复制状态
-      setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy YAML content:', err);
-    }
-  };
 
   const addArrayItem = (field: string, subField?: string) => {
     setFormData((prev) => {
@@ -554,11 +573,11 @@ export default function YamlGenerator() {
           return;
         }
 
-        // 第四页：按回车下载文件或创建新的元信息
+        // 第四页：按回车提交文件或创建新的元信息
         if (step === 4 && e.key === 'Enter') {
           e.preventDefault();
           if (!hasDownloaded) {
-            downloadYaml();
+            submitYaml();
           } else {
             createNewMetadata();
           }
@@ -590,19 +609,31 @@ export default function YamlGenerator() {
 
 
 
-      // 第四页：按回车下载文件或创建新的元信息（但不在特殊组件中时）
+      // 第四页：按回车提交文件或创建新的元信息（但不在特殊组件中时）
       if (step === 4 && e.key === 'Enter' && !isInSpecialComponent) {
         if (!hasDownloaded) {
-          downloadYaml();
+          // If user is authenticated, submit to database; otherwise download file
+          if (user) {
+            submitYaml();
+          } else {
+            downloadYaml();
+            setHasDownloaded(true);
+          }
         } else {
           createNewMetadata();
         }
+      }
+
+      // 第四页：提交成功后，按 'm' 返回主页
+      if (step === 4 && submissionSuccess && e.key === 'm' && !isInSpecialComponent) {
+        e.preventDefault();
+        router.push('/');
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [step, selectedTypeIndex, validateStep2, validateStep3, getHighlightedFieldIds, resetForm, setHighlightedFields, setStep, downloadYaml, createNewMetadata, hasDownloaded]);
+  }, [step, selectedTypeIndex, validateStep2, validateStep3, getHighlightedFieldIds, resetForm, setHighlightedFields, setStep, submitYaml, createNewMetadata, hasDownloaded, submissionSuccess, router]);
 
   // 处理步骤变化和自动focus
   useEffect(() => {
@@ -913,7 +944,7 @@ export default function YamlGenerator() {
               
               setUrlValidationError("");
             }}
-            initialUploadedKey={formData.url ? formData.url.split('/').pop() : undefined}
+            initialUploadedKey={formData.url ? extractFileNameFromURL(formData.url) : undefined}
             initialFileInfo={uploadedFileInfo}
             onReset={() => {
               setFormData((prev) => ({
@@ -1134,7 +1165,7 @@ export default function YamlGenerator() {
           <div className="space-y-2">
             <Label htmlFor="edition">
               版次
-              <LabelKbd>q</LabelKbd>
+              <LabelKbd>l</LabelKbd>
             </Label>
             <Input
               id="edition"
@@ -1408,7 +1439,7 @@ export default function YamlGenerator() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="start-year">
-                开始年份
+                开始年份 *
                 <LabelKbd>b</LabelKbd>
               </Label>
               <Input
@@ -1445,7 +1476,7 @@ export default function YamlGenerator() {
 
             <div className="space-y-2">
               <Label htmlFor="end-year">
-                结束年份
+                结束年份 *
                 <LabelKbd>e</LabelKbd>
               </Label>
               <Input
@@ -1483,7 +1514,7 @@ export default function YamlGenerator() {
 
           {(() => {
             const yearValidation = validateYearRange(data.time.start, data.time.end);
-            return !yearValidation.isValid && yearValidation.error && (
+            return !yearValidation.isValid && yearValidation.error && highlightedFields.includes('test-time-range') && (
               <p className="text-xs text-red-500 col-span-2">
                 {yearValidation.error}
               </p>
@@ -1899,7 +1930,7 @@ export default function YamlGenerator() {
               }
             }}
             >
-              下一步：预览和下载
+              下一步：预览和提交
               <ButtonKbd invert={true}>x</ButtonKbd>
             </Button>
           </div>
@@ -1911,9 +1942,10 @@ export default function YamlGenerator() {
   const renderStep4 = () => (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">预览和下载</h2>
-        <p className="text-muted-foreground">检查生成的YAML文件并下载</p>
+        <h2 className="text-2xl font-bold">预览和提交</h2>
+        <p className="text-muted-foreground">检查生成的YAML文件并提交</p>
       </div>
+      
       <div className="relative">
         <div className={`p-4 rounded-lg text-sm overflow-x-auto border yaml-highlight ${
           actualTheme === 'dark' ? 'yaml-dark' : 'yaml-light'
@@ -1925,22 +1957,36 @@ export default function YamlGenerator() {
             }}
           />
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={copyYamlToClipboard}
+        <CopyButton
+          content={generateYaml(fileType, formData)}
           className="absolute top-2 right-2 h-8 w-14 p-0"
-          title={isCopied ? "已复制!" : "复制YAML内容"}
-        >
-          {isCopied ? (
-            <Check className="h-4 w-4 text-green-500" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
-          <ButtonKbd>c</ButtonKbd>
-        </Button>
+          title="复制YAML内容"
+          shortcut="c"
+        />
       </div>
-      <div className="flex justify-between">
+      
+      {/* Success message - styled like /bind page */}
+      {submissionSuccess && (
+        <div className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 border rounded-lg p-3 px-3 sm:px-6">
+          <div className="flex flex-row items-center gap-3 justify-between">
+            <div>
+              <p className="font-medium text-green-800 dark:text-green-200 flex items-center">
+                <CheckCircle className="w-5 h-5 mr-2" />
+                提交成功！
+              </p>
+            </div>
+            <Button 
+              onClick={() => router.push('/')}
+              className="flex items-center bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white"
+            >
+              <span>返回主页</span>
+              <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">m</ButtonKbd>
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      <div className="flex flex-col sm:flex-row justify-between gap-2">
         {!hasDownloaded ? (
           <>
             <Button variant="outline" onClick={() => {
@@ -1951,30 +1997,51 @@ export default function YamlGenerator() {
               上一步
               <ButtonKbd>z</ButtonKbd>
             </Button>
-            <Button
-              onClick={downloadYaml}
-              className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
-            >
-              <Download className="w-4 h-4 mr-1" />
-              下载 YAML 文件
-              <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
-            </Button>
+            {user ? (
+              <Button
+                onClick={submitYaml}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                    提交中...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    提交
+                  </>
+                )}
+                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">s</ButtonKbd>
+              </Button>
+            ) : (
+              <Button
+                onClick={downloadYaml}
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                下载 YAML 文件
+                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
+              </Button>
+            )}
           </>
         ) : (
           <>
             <Button variant="outline" onClick={() => {
-              setPreviousStep(step); // 防止触发自动focus
+              setPreviousStep(step);
               setStep(3);
             }}
             >
               上一步
               <ButtonKbd>z</ButtonKbd>
             </Button>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
                 onClick={createNewMetadata}
-                className="flex items-center"
+                className="flex items-center w-full sm:w-auto"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 创建新的元信息
@@ -1982,10 +2049,11 @@ export default function YamlGenerator() {
               </Button>
               <Button
                 onClick={downloadYaml}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
+                variant="outline"
+                className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white w-full sm:w-auto"
               >
                 <Download className="w-4 h-4 mr-1" />
-                重新下载
+                下载 YAML 文件
                 <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
               </Button>
             </div>
@@ -1996,14 +2064,13 @@ export default function YamlGenerator() {
   );
 
   return (
-    <ShortcutProvider>
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 p-4">
+      <div className="p-4 pt-0">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center my-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            BYR Docs Publish
+        <div className="text-center my-8 mt-2">
+          <h1 className="text-2xl font-bold text-foreground mb-2">
+            添加新文件
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-muted-foreground">
             上传文件和编写
             <a
               href="https://github.com/byrdocs/byrdocs-archive/wiki/%E5%85%B3%E4%BA%8E%E6%96%87%E4%BB%B6"
@@ -2047,7 +2114,7 @@ export default function YamlGenerator() {
               <span>选择类型</span>
               <span>基本信息</span>
               <span>详细信息</span>
-              <span>预览下载</span>
+              <span>预览提交</span>
             </div>
           </div>
         </div>
@@ -2070,12 +2137,6 @@ export default function YamlGenerator() {
             {step === 4 && renderStep4()}
           </CardContent>
         </Card>
-
-        <div className="text-center my-8 text-sm text-muted-foreground">
-          <p>
-            <a href="https://byrdocs.org" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">BYRDocs</a> | <a href="https://github.com/byrdocs" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">GitHub</a>
-          </p>
-        </div>
       </div>
       
       {/* 快捷键帮助弹窗 */}
@@ -2172,6 +2233,5 @@ export default function YamlGenerator() {
         </DialogContent>
       </Dialog>
     </div>
-    </ShortcutProvider>
   );
 }

@@ -15,13 +15,16 @@ import {
   FileText,
   Trash2,
   ExternalLink,
-  User,
   AlertCircle,
+  User,
+  Loader2,
 } from "lucide-react";
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import CryptoJS from "crypto-js";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/auth-provider";
+import { GithubIcon } from "./icon/github";
 
 interface FileUploadProps {
   allowedTypes: string[];
@@ -63,7 +66,7 @@ export default function FileUpload({
   onReset,
   onSwitchToUrl
 }: FileUploadProps) {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = checking
+  const { token, isLoading } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [md5Progress, setMd5Progress] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -78,23 +81,7 @@ export default function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Check login status on mount and when window gains focus
-  const checkLoginStatus = useCallback(() => {
-    const token = localStorage.getItem('token');
-    setIsLoggedIn(!!token);
-  }, []);
 
-  useEffect(() => {
-    // Check immediately on mount
-    checkLoginStatus();
-    
-    const handleFocus = () => {
-      checkLoginStatus();
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [checkLoginStatus]);
 
   // Handle initial uploaded key
   useEffect(() => {
@@ -172,7 +159,6 @@ export default function FileUpload({
 
   // Get S3 upload credentials
   const getS3Credentials = async (key: string, signal?: AbortSignal): Promise<S3UploadResponse> => {
-    const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('No authentication token found');
     }
@@ -245,9 +231,7 @@ export default function FileUpload({
     await upload.done();
   };
 
-  const handleLogin = () => {
-    window.open('https://byrdocs.org/api/auth/oauth?service=byrdocs-publish', '_blank');
-  };
+
 
   const validateAndSetFile = async (file: File) => {
     // Check file type
@@ -379,7 +363,7 @@ export default function FileUpload({
     setErrorMessage('');
     setMd5Hash('');
     setUploadedKey('');
-    setFileExistsError(null); // 重置文件已存在错误
+    setFileExistsError(null);
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -389,7 +373,6 @@ export default function FileUpload({
       abortControllerRef.current.abort();
     }
     
-    // 调用父组件的重置回调
     onReset?.();
   };
 
@@ -452,25 +435,21 @@ export default function FileUpload({
     }
   };
 
-  if (isLoggedIn === null) {
-    // Loading state
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleLogin = () => {
+    window.open('/login?close=true', '_blank');
+  };
 
-  if (!isLoggedIn) {
+
+  if (!token) {
     return (
       <Card className={cn("w-full max-w-md mx-auto", className)}>
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-primary" />
+            {isLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            ) : (
+              <GithubIcon className="w-6 h-6 text-primary" />
+            )}
           </div>
           <CardTitle>登录以上传文件</CardTitle>
         </CardHeader>
@@ -479,15 +458,17 @@ export default function FileUpload({
             onClick={handleLogin} 
             className="w-full"
             size="lg"
+            disabled={isLoading}
           >
+            使用 GitHub 登录
             <ExternalLink className="w-4 h-4 mr-2" />
-            使用 BYR Docs 登录
             <ButtonKbd invert={true}>l</ButtonKbd>
           </Button>
         </CardContent>
       </Card>
     );
   }
+
 
   return (
     <Card className={cn("w-full max-w-md mx-auto", className)}>

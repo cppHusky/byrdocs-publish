@@ -1,0 +1,67 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  githubUserId  String   @unique
+  username      String   @unique
+  accessToken   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  bindings      RepositoryBinding[]
+  fileChanges   FileChange[]
+}
+
+model GitHubInstallation {
+  id              Int      @id @default(autoincrement())
+  installationId  String   @unique
+  accountLogin    String   // username or organization name
+  accountType     String   // "User" or "Organization"
+  repositoryName  String?  // fork name of byrdocs-archive (if exists)
+  isSuspended     Boolean  @default(false) // track suspend/unsuspend status
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  bindings        RepositoryBinding[]
+}
+
+model RepositoryBinding {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  installationId Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installation   GitHubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+}
+
+model FileChange {
+  id              Int      @id @default(autoincrement())
+  userId          Int      // Who made the change
+  filename        String   // The filename (MD5.yml)
+  md5Hash         String   // MD5 hash of the original file
+  status          String   // "created", "modified", "deleted"
+  content         String   // Current YAML content
+  previousContent String?  // Previous YAML content (for modified files)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([md5Hash])
+}

@@ -1,64 +1,64 @@
 import { FileType } from "./types";
 
+const cleanURL = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    urlObj.search = "";
+    urlObj.hash = "";
+    return urlObj.toString();
+  } catch (error) {
+    return url;
+  }
+};
 
 export const validateYearRange = (
   startYear: string,
   endYear: string
 ): { isValid: boolean; error?: string } => {
-  // 如果两个年份都为空，则通过验证
-  if (!startYear && !endYear) {
-    return { isValid: true };
+  // 开始年份和结束年份都是必填项
+  if (!startYear) {
+    return { isValid: false, error: "开始年份是必填项" };
   }
 
-  // 如果只填了一个年份，要求另一个也必须填
-  if (startYear && !endYear) {
-    return { isValid: false, error: "填写了开始年份后，结束年份也必须填写" };
+  if (!endYear) {
+    return { isValid: false, error: "结束年份是必填项" };
   }
 
-  if (!startYear && endYear) {
-    return { isValid: false, error: "填写了结束年份后，开始年份也必须填写" };
+  // 验证是否为整数
+  if (!/^\d+$/.test(startYear.trim())) {
+    return { isValid: false, error: "开始年份必须是整数" };
   }
 
-  // 如果两个年份都填了，验证范围关系
-  if (startYear && endYear) {
-    // 验证是否为整数
-    if (!/^\d+$/.test(startYear.trim())) {
-      return { isValid: false, error: "开始年份必须是整数" };
-    }
+  if (!/^\d+$/.test(endYear.trim())) {
+    return { isValid: false, error: "结束年份必须是整数" };
+  }
 
-    if (!/^\d+$/.test(endYear.trim())) {
-      return { isValid: false, error: "结束年份必须是整数" };
-    }
+  const start = parseInt(startYear);
+  const end = parseInt(endYear);
+  const currentYear = new Date().getFullYear();
 
-    const start = parseInt(startYear);
-    const end = parseInt(endYear);
-    const currentYear = new Date().getFullYear();
+  if (start < 2000 || start > currentYear) {
+    return {
+      isValid: false,
+      error: `开始年份必须在 2000 到 ${currentYear} 之间`,
+    };
+  }
 
-    if (start < 2000 || start > currentYear) {
-      return {
-        isValid: false,
-        error: `开始年份必须在 2000 到 ${currentYear} 之间`,
-      };
-    }
+  if (end < 2000 || end > currentYear) {
+    return {
+      isValid: false,
+      error: `结束年份必须在 2000 到 ${currentYear} 之间`,
+    };
+  }
 
-    if (end < 2000 || end > currentYear) {
-      return {
-        isValid: false,
-        error: `结束年份必须在 2000 到 ${currentYear} 之间`,
-      };
-    }
-
-    if (end !== start && end !== start + 1) {
-      return { isValid: false, error: "结束年份必须等于开始年份或开始年份+1" };
-    }
+  if (end !== start && end !== start + 1) {
+    return { isValid: false, error: "结束年份必须等于开始年份或开始年份+1" };
   }
 
   return { isValid: true };
 };
 
 export const validateYear = (year: string): boolean => {
-  if (!year) return true; // 空值不验证
-
   // 验证是否为整数
   if (!/^\d+$/.test(year.trim())) {
     return false;
@@ -78,15 +78,17 @@ export const validateURLFileType = (
     return { isValid: true }; // 空URL不验证
   }
 
+  const cleanedUrl = cleanURL(url);
+
   // 首先验证URL格式
-  const urlFormatValidation = validateURLFormat(url);
+  const urlFormatValidation = validateURLFormat(cleanedUrl);
   if (!urlFormatValidation.isValid) {
     return urlFormatValidation;
   }
 
   const urlPattern =
     /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
-  const match = url.match(urlPattern);
+  const match = cleanedUrl.match(urlPattern);
   if (!match) {
     return { isValid: false, error: "无法从URL中检测到文件扩展名" };
   }
@@ -116,9 +118,10 @@ export const validateURLFileType = (
 
 // 从URL中提取MD5
 export const extractMD5FromURL = (url: string): string => {
+  const cleanedUrl = cleanURL(url);
   const urlPattern =
     /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
-  const match = url.match(urlPattern);
+  const match = cleanedUrl.match(urlPattern);
   return match ? match[1] : "";
 };
 
@@ -127,9 +130,10 @@ export const extractFileTypeFromURL = (
   url: string,
   fileType: FileType
 ): string => {
+  const cleanedUrl = cleanURL(url);
   const urlPattern =
     /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32})\.([a-zA-Z0-9]+)$/i;
-  const match = url.match(urlPattern);
+  const match = cleanedUrl.match(urlPattern);
   if (match) {
     const extension = match[2].toLowerCase();
 
@@ -143,6 +147,15 @@ export const extractFileTypeFromURL = (
   return "pdf"; // 默认返回pdf
 };
 
+// 从URL中提取文件名（MD5.扩展名）
+export const extractFileNameFromURL = (url: string): string => {
+  const cleanedUrl = cleanURL(url);
+  const urlPattern =
+    /^https:\/\/byrdocs\.org\/files\/([a-f0-9]{32}\.[a-zA-Z0-9]+)$/i;
+  const match = cleanedUrl.match(urlPattern);
+  return match ? match[1] : "";
+};
+
 // 验证URL格式是否正确
 export const validateURLFormat = (
   url: string
@@ -151,31 +164,28 @@ export const validateURLFormat = (
     return { isValid: true }; // 空URL不验证
   }
 
-  // 检查基本URL格式
   if (!url.startsWith("https://byrdocs.org/files/")) {
     return {
       isValid: false,
-      error: "URL必须以 https://byrdocs.org/files/ 开头",
+      error: "URL 必须以 https://byrdocs.org/files/ 开头",
     };
   }
 
   // 提取文件部分
   const filePart = url.replace("https://byrdocs.org/files/", "");
 
-  // 检查是否包含文件扩展名
   const dotIndex = filePart.lastIndexOf(".");
   if (dotIndex === -1) {
     return {
       isValid: false,
       error:
-        "URL中缺少文件扩展名，格式应为：https://byrdocs.org/files/[MD5].[扩展名]",
+        "URL中 缺少文件扩展名，格式应为：https://byrdocs.org/files/[MD5].[扩展名]",
     };
   }
 
   const md5Part = filePart.substring(0, dotIndex);
   const extensionPart = filePart.substring(dotIndex + 1);
 
-  // 验证MD5部分
   if (!md5Part) {
     return {
       isValid: false,

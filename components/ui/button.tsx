@@ -286,13 +286,7 @@ const ButtonKbd = React.forwardRef<HTMLElement, ButtonKbdProps>(
       }
       return 'normal'
     }
-    
-    // Check if this shortcut should be highlighted
-    const { currentSequence, isWaitingForNext } = context?.shortcutState || {}
-    const shortcutKeys = shortcutText.split('')
-    const couldMatch = shortcutKeys.slice(0, (currentSequence || '').length).join('') === (currentSequence || '')
-    const isHighlighted = isWaitingForNext && couldMatch
-    
+
     return (
       <kbd
         className={cn(

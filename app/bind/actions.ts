@@ -1,7 +1,7 @@
 'use server';
 
 import { getPrismaClient } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { getUserInfo } from '@/lib/auth';
 import { Octokit } from '@octokit/rest';
 
 export interface Repository {
@@ -26,7 +26,10 @@ export interface UserBinding {
 
 // Get current user's repository binding
 export async function getCurrentBinding(): Promise<UserBinding | null> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    return null;
+  }
   const prisma = getPrismaClient();
 
   const binding = await prisma.repositoryBinding.findFirst({
@@ -66,7 +69,10 @@ export async function getCurrentBinding(): Promise<UserBinding | null> {
 
 // Get available repositories from user's GitHub account and organizations
 export async function getAvailableRepositories(): Promise<Repository[]> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    return [];
+  }
   const prisma = getPrismaClient();
 
   try {
@@ -145,7 +151,10 @@ export async function getAvailableRepositories(): Promise<Repository[]> {
 
 // Bind a repository to the current user
 export async function bindRepository(installationId: string): Promise<void> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    throw new Error('用户未登录，请先登录');
+  }
   const prisma = getPrismaClient();
 
   try {

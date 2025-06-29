@@ -1969,10 +1969,13 @@ export default function YamlGenerator() {
       {submissionSuccess && (
         <div className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 border rounded-lg p-3 px-3 sm:px-6">
           <div className="flex flex-row items-center gap-3 justify-between">
-            <div>
+            <div className="space-y-2 py-2">
               <p className="font-medium text-green-800 dark:text-green-200 flex items-center">
                 <CheckCircle className="w-5 h-5 mr-2" />
-                提交成功！
+                暂存成功
+              </p>
+              <p className="text-muted-foreground text-sm">
+                如果没有其他文件，请在主页提交更改
               </p>
             </div>
             <Button 
@@ -2011,7 +2014,7 @@ export default function YamlGenerator() {
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-1" />
-                    提交
+                    暂存
                   </>
                 )}
                 <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">s</ButtonKbd>
@@ -2050,11 +2053,11 @@ export default function YamlGenerator() {
               <Button
                 onClick={downloadYaml}
                 variant="outline"
-                className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white w-full sm:w-auto"
+                // className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white w-full sm:w-auto"
               >
                 <Download className="w-4 h-4 mr-1" />
                 下载 YAML 文件
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
+                <ButtonKbd>d</ButtonKbd>
               </Button>
             </div>
           </>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button, ButtonKbd } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Dialog,
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { GitCommit, Upload, RotateCcw, AlertCircle, Loader2, CheckCircle, ExternalLink } from "lucide-react"
+import { GitCommit, Upload, RotateCcw, AlertCircle, Loader2, Link2 } from "lucide-react"
 import { FileChangeItem } from "./file-change-item"
 import type { FileChange } from "@/lib/diff"
 import { 
@@ -28,6 +28,9 @@ import {
   type FileChangeResult 
 } from "@/app/file-changes/actions"
 import { useAuth } from "@/components/auth-provider"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { PrSuccessDialog } from "./pr-success-dialog"
 
 // Convert database result to FileChange format
 function convertToFileChange(result: FileChangeResult): FileChange {
@@ -43,7 +46,8 @@ function convertToFileChange(result: FileChangeResult): FileChange {
 }
 
 export function FileChanges() {
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, binding, isLoading: authLoading } = useAuth()
+  const router = useRouter()
   const [fileChanges, setFileChanges] = useState<FileChange[] | null>(null)
   const [isCommitting, setIsCommitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -51,6 +55,8 @@ export function FileChanges() {
   const [commitError, setCommitError] = useState<string | null>(null)
   const [commitStep, setCommitStep] = useState<string | null>(null)
   const [prUrl, setPrUrl] = useState<string | null>(null)
+  const [showPrSuccessDialog, setShowPrSuccessDialog] = useState(false)
+
 
   // Load file changes from database
   useEffect(() => {
@@ -169,6 +175,7 @@ export function FileChanges() {
       // Step 5: 创建 Pull Request
       setCommitStep('创建 Pull Request...')
       const prResult = await createPullRequestAndCleanup(userToken, repoOwner, branchName)
+      console.log('PR Result:', prResult)
       if (prResult.error) {
         setCommitError(prResult.error)
         setCommitStep(null)
@@ -176,12 +183,15 @@ export function FileChanges() {
       }
       
       if (prResult.prUrl) {
+        console.log('Showing PR success dialog')
         setCommitStep('提交完成！')
         setPrUrl(prResult.prUrl)
+        setShowPrSuccessDialog(true)
         setFileChanges([])
-        
-        // 打开 PR 链接
-        window.open(prResult.prUrl, '_blank', 'noopener,noreferrer')
+      } else {
+        // If no PR URL was returned, show an error
+        setCommitError('Pull Request 创建成功但未返回链接')
+        setCommitStep(null)
       }
     } catch (error) {
       console.error('Failed to commit files:', error)
@@ -207,37 +217,70 @@ export function FileChanges() {
 
   if (isLoading && fileChanges === null) {
     return (
-      <Card className="border-dashed border-2">
-        <CardContent className="py-12 text-center">
-          <Loader2 className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-spin" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">加载中...</h3>
-          <p className="text-gray-500 dark:text-gray-400">正在获取文件变更记录</p>
-        </CardContent>
-      </Card>
+      <>
+        <Card className="border-dashed border-2">
+          <CardContent className="py-12 text-center">
+            <Loader2 className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-spin" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">加载中...</h3>
+            <p className="text-gray-500 dark:text-gray-400">正在获取文件变更记录</p>
+          </CardContent>
+        </Card>
+        <PrSuccessDialog
+          open={showPrSuccessDialog}
+          onOpenChange={setShowPrSuccessDialog}
+          prUrl={prUrl}
+          onClose={() => {
+            setShowPrSuccessDialog(false)
+            setPrUrl(null)
+          }}
+        />
+      </>
     )
   }
 
   if (!user) {
     return (
-      <Card className="border-dashed border-2">
-        <CardContent className="py-12 text-center">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">未登录</h3>
-          <p className="text-gray-500 dark:text-gray-400">登录后可以查看和管理您的文件变更</p>
-        </CardContent>
-      </Card>
+      <>
+        <Card className="border-dashed border-2">
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">未登录</h3>
+            <p className="text-gray-500 dark:text-gray-400">登录后可以查看和管理您的文件变更</p>
+          </CardContent>
+        </Card>
+        <PrSuccessDialog
+          open={showPrSuccessDialog}
+          onOpenChange={setShowPrSuccessDialog}
+          prUrl={prUrl}
+          onClose={() => {
+            setShowPrSuccessDialog(false)
+            setPrUrl(null)
+          }}
+        />
+      </>
     )
   }
 
   if (fileChanges && fileChanges.length === 0) {
     return (
-      <Card className="border-dashed border-2">
-        <CardContent className="py-12 text-center">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">暂无文件修改</h3>
-          <p className="text-gray-500 dark:text-gray-400">当您修改文件时，更改将在此处显示</p>
-        </CardContent>
-      </Card>
+      <>
+        <Card className="border-dashed border-2">
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">暂无文件修改</h3>
+            <p className="text-gray-500 dark:text-gray-400">当您修改文件时，更改将在此处显示</p>
+          </CardContent>
+        </Card>
+        <PrSuccessDialog
+          open={showPrSuccessDialog}
+          onOpenChange={setShowPrSuccessDialog}
+          prUrl={prUrl}
+          onClose={() => {
+            setShowPrSuccessDialog(false)
+            setPrUrl(null)
+          }}
+        />
+      </>
     )
   }
 
@@ -271,23 +314,38 @@ export function FileChanges() {
               </div>
             </div>
             <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center space-x-2 self-end sm:self-auto">
-              <Button variant="destructive" onClick={openRevertDialog} size="sm">
+              <Button variant="destructive" onClick={openRevertDialog} size="sm" disabled={isCommitting}>
                 <RotateCcw className="h-4 w-4 mr-1" />
                 <span>放弃更改</span>
+                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">r</ButtonKbd>
               </Button>
-              <Button onClick={handleCommit} disabled={isCommitting} className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white" size="sm">
-                {isCommitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    <span>提交中...</span>
-                  </>
-                ) : (
-                  <>
-                    <GitCommit className="h-4 w-4 mr-1" />
-                    <span>提交更改</span>
-                  </>
-                )}
-              </Button>
+              {user && binding ? (
+                <Button onClick={handleCommit} disabled={isCommitting} className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white" size="sm">
+                  {isCommitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <span>提交中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <GitCommit className="h-4 w-4 mr-1" />
+                      <span>提交更改</span>
+                      <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">c</ButtonKbd>
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={() => router.push(!user ? '/login' : '/bind')} 
+                    className="bg-amber-600 hover:bg-amber-600/90 dark:bg-amber-700 dark:hover:bg-amber-700/90 text-white w-full sm:w-auto" 
+                    size="sm"
+                  >
+                    <Link2 className="h-4 w-4 mr-1" />
+                    <span>{!user ? '登录' : '绑定仓库'}</span>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -325,35 +383,6 @@ export function FileChanges() {
         </Card>
       )}
 
-      {/* Success display with PR link */}
-      {prUrl && !isCommitting && (
-        <Card className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-          <CardContent className="py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-              <div className="flex items-center space-x-3">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                <span className="text-green-800 dark:text-green-200 font-medium">提交成功！Pull Request 已创建</span>
-              </div>
-              <Button 
-                onClick={() => window.open(prUrl, '_blank', 'noopener,noreferrer')}
-                className="bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
-                size="sm"
-              >
-                <ExternalLink className="h-4 w-4" />
-                <span>查看 PR</span>
-              </Button>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setPrUrl(null)}
-              className="mt-3"
-            >
-              关闭
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="space-y-3">
         {fileChanges && fileChanges.map((fileChange) => (
@@ -365,6 +394,16 @@ export function FileChanges() {
           />
         ))}
       </div>
+
+      <PrSuccessDialog
+        open={showPrSuccessDialog}
+        onOpenChange={setShowPrSuccessDialog}
+        prUrl={prUrl}
+        onClose={() => {
+          setShowPrSuccessDialog(false)
+          setPrUrl(null)
+        }}
+      />
 
       {/* Revert confirmation dialog */}
       <Dialog open={showRevertDialog} onOpenChange={setShowRevertDialog}>

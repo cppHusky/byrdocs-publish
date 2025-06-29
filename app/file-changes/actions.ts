@@ -1,9 +1,8 @@
 'use server';
 
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, getUserInfo } from '@/lib/auth';
 import { getPrismaClient } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { Octokit } from '@octokit/rest';
 import { parse } from 'yaml';
 
@@ -27,7 +26,10 @@ export interface FileChangeResult {
 }
 
 export async function createFileChange(data: FileChangeData): Promise<FileChangeResult> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    throw new Error('用户未登录，请先登录');
+  }
   const prisma = getPrismaClient();
 
   // Check if a file change already exists for this MD5 hash by this user
@@ -81,7 +83,11 @@ export async function createFileChange(data: FileChangeData): Promise<FileChange
 }
 
 export async function getUserFileChanges(): Promise<FileChangeResult[]> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    // Return empty array for unauthenticated users
+    return [];
+  }
   const prisma = getPrismaClient();
 
   const fileChanges = await prisma.fileChange.findMany({
@@ -102,7 +108,10 @@ export async function getUserFileChanges(): Promise<FileChangeResult[]> {
 }
 
 export async function updateFileChange(id: number, content: string): Promise<FileChangeResult> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    throw new Error('用户未登录，请先登录');
+  }
   const prisma = getPrismaClient();
 
   const fileChange = await prisma.fileChange.findFirst({
@@ -139,7 +148,10 @@ export async function updateFileChange(id: number, content: string): Promise<Fil
 }
 
 export async function deleteFileChange(id: number): Promise<void> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    throw new Error('用户未登录，请先登录');
+  }
   const prisma = getPrismaClient();
 
   const fileChange = await prisma.fileChange.findFirst({
@@ -168,7 +180,15 @@ export async function checkRepositoryBinding(): Promise<{
   error?: string;
 }> {
   try {
-    const user = await requireAuth();
+    const user = await getUserInfo();
+    if (!user) {
+      return {
+        repoOwner: '',
+        repoName: '',
+        userToken: '',
+        error: '用户未登录，请先登录并绑定仓库',
+      };
+    }
     const prisma = getPrismaClient();
 
     const binding = await prisma.repositoryBinding.findFirst({
@@ -184,7 +204,12 @@ export async function checkRepositoryBinding(): Promise<{
     });
 
     if (!binding) {
-      redirect('/bind');
+      return {
+        repoOwner: '',
+        repoName: '',
+        userToken: '',
+        error: '请先绑定仓库',
+      };
     }
 
     return {
@@ -229,7 +254,10 @@ export async function createCommitBranch(
   repoName: string
 ): Promise<{ branchName?: string; error?: string }> {
   try {
-    const user = await requireAuth();
+    const user = await getUserInfo();
+    if (!user) {
+      return { error: '用户未登录，请先登录' };
+    }
     const octokit = new Octokit({ auth: userToken });
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -251,7 +279,10 @@ export async function commitFilesToNewBranch(
   branchName: string
 ): Promise<{ error?: string }> {
   try {
-    const user = await requireAuth();
+    const user = await getUserInfo();
+    if (!user) {
+      return { error: '用户未登录，请先登录' };
+    }
     const prisma = getPrismaClient();
     const octokit = new Octokit({ auth: userToken });
 
@@ -280,7 +311,10 @@ export async function createPullRequestAndCleanup(
   branchName: string
 ): Promise<{ prUrl?: string; error?: string }> {
   try {
-    const user = await requireAuth();
+    const user = await getUserInfo();
+    if (!user) {
+      return { error: '用户未登录，请先登录' };
+    }
     const prisma = getPrismaClient();
     const octokit = new Octokit({ auth: userToken });
 
@@ -315,7 +349,10 @@ export async function createPullRequestAndCleanup(
 }
 
 export async function revertAllFileChanges(): Promise<void> {
-  const user = await requireAuth();
+  const user = await getUserInfo();
+  if (!user) {
+    throw new Error('用户未登录，请先登录');
+  }
   const prisma = getPrismaClient();
 
   await prisma.fileChange.deleteMany({
@@ -474,6 +511,16 @@ async function createPullRequest(
   body: string
 ): Promise<string> {
   try {
+    console.log('Creating PR with params:', {
+      upstreamOwner,
+      upstreamRepo,
+      repoOwner,
+      branchName,
+      title,
+      head: `${repoOwner}:${branchName}`,
+      base: 'master'
+    });
+    
     const { data: pr } = await octokit.rest.pulls.create({
       owner: upstreamOwner,
       repo: upstreamRepo,
@@ -482,10 +529,15 @@ async function createPullRequest(
       head: `${repoOwner}:${branchName}`,
       base: 'master',
     });
+    
+    console.log('PR created successfully:', pr.html_url);
     return pr.html_url;
   } catch (error) {
     console.error('Error creating pull request:', error);
-    throw new Error('Failed to create pull request');
+    if (error instanceof Error) {
+      throw new Error(`创建 Pull Request 失败: ${error.message}`);
+    }
+    throw new Error('创建 Pull Request 失败: 未知错误');
   }
 }
 

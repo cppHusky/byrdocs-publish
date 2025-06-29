@@ -46,13 +46,43 @@ export default function GitHubSetupPage() {
   const [bindingStep, setBindingStep] = useState<'select' | 'confirm' | 'success'>('select');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { refreshBinding } = useAuth();
+  const { user, isLoading, refreshBinding } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
 
   // Load current binding and repositories on mount
   useEffect(() => {
-    loadCurrentBinding();
-    fetchRepositories();
-  }, []);
+    // Only load data if user is authenticated
+    if (user && !isLoading) {
+      loadCurrentBinding();
+      fetchRepositories();
+    }
+  }, [user, isLoading]);
+
+  // Refresh repositories when page gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      // Only refresh if the page is visible and not currently loading
+      if (document.visibilityState === 'visible' && !loading) {
+        fetchRepositories();
+      }
+    };
+
+    // Add event listeners for both focus and visibility change
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [loading]);
 
   const loadCurrentBinding = async () => {
     try {
@@ -126,6 +156,23 @@ export default function GitHubSetupPage() {
       day: "numeric",
     });
   };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center text-muted-foreground">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>正在加载...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
 
   return (
     <ShortcutProvider>

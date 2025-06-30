@@ -7,33 +7,12 @@ import yaml from "highlight.js/lib/languages/yaml";
 import { Button, ButtonKbd } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  CardContent
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label, LabelKbd } from "@/components/ui/label";
+
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  Download,
-  FileText,
-  BookOpen,
-  ClipboardList,
-  Plus,
-  Trash2,
-  RotateCcw,
   Keyboard,
-  Upload as UploadIcon,
-  RefreshCw,
-  CheckCircle,
+  Eye,
 } from "lucide-react";
 import {
   Dialog,
@@ -42,19 +21,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X } from "lucide-react";
-import { CheckboxGroup } from "./yaml-generator/CheckboxGroup";
-import { CollegeMultiSelect } from "./yaml-generator/CollegeMultiSelect";
-import { CourseNameInput } from "./yaml-generator/CourseNameInput";
-import FileUpload from "./file-upload";
-import { extractFileTypeFromURL, extractMD5FromURL, extractFileNameFromURL, validateURLFileType, validateYear, validateYearRange } from "@/lib/validate";
+import { Step1 } from "./yaml-generator/Step1";
+import { Step2 } from "./yaml-generator/Step2";
+import { Step3 } from "./yaml-generator/Step3";
+import { Step4 } from "./yaml-generator/Step4";
+import { PreviewOverlay } from "./yaml-generator/PreviewOverlay";
+import { BookForm } from "./yaml-generator/BookForm";
+import { TestForm } from "./yaml-generator/TestForm";
+import { DocForm } from "./yaml-generator/DocForm";
+import { validateURLFileType, validateYear, validateYearRange } from "@/lib/validate";
 import { BookData, DocData, FileType, TestData, FormData } from "@/lib/types";
 import { generateYaml } from "@/lib/yaml";
-import { validateISBN, formatISBN } from "@/lib/isbn";
+import { validateISBN } from "@/lib/isbn";
 import { useTheme } from "./theme-provider";
 import { createFileChange } from "@/app/file-changes/actions";
 import { useAuth } from "@/components/auth-provider";
-import { CopyButton } from "./copy-button";
 
 export default function YamlGenerator() {
   const { actualTheme } = useTheme();
@@ -112,6 +93,10 @@ export default function YamlGenerator() {
   const [showShortcuts, setShowShortcuts] = useState(false); // 快捷键帮助弹窗
   const [inputMethod, setInputMethod] = useState<'url' | 'upload'>('upload'); // 输入方式选择，默认上传文件
   const [uploadedFileInfo, setUploadedFileInfo] = useState<{ name: string; size: number } | null>(null); // 保存上传文件信息
+  const [showPreview, setShowPreview] = useState(false); // 预览窗口状态
+  const [previewWasOpen, setPreviewWasOpen] = useState(false); // 记录预览窗口之前是否打开
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null); // 保存上传的文件对象用于预览
+  const [blobUrl, setBlobUrl] = useState<string>('');
   const [formData, setFormData] = useState<FormData>({
     id: "",
     url: "",
@@ -175,6 +160,16 @@ export default function YamlGenerator() {
     setUrlValidationError("");
     setSubmissionSuccess(false);
     resetFormCompletely("book");
+  };
+
+  // 检查是否应该显示预览按钮
+  const shouldShowPreviewButton = () => {
+    return (
+      step === 3 &&
+      inputMethod === 'upload' &&
+      formData.data.filetype === 'pdf' &&
+      uploadedFile !== null
+    );
   };
 
   const resetFormCompletely = (type: FileType) => {
@@ -551,6 +546,7 @@ export default function YamlGenerator() {
         return;
       }
 
+
       // 检查是否在特殊组件中（下拉框、弹窗等），如果是则不处理全局快捷键
       const isInSpecialComponent = (
         e.target instanceof HTMLButtonElement ||
@@ -573,16 +569,6 @@ export default function YamlGenerator() {
           return;
         }
 
-        // 第四页：按回车提交文件或创建新的元信息
-        if (step === 4 && e.key === 'Enter') {
-          e.preventDefault();
-          if (!hasDownloaded) {
-            submitYaml();
-          } else {
-            createNewMetadata();
-          }
-          return;
-        }
         
         // 对于输入框，只阻止 Enter 键，其他全局快捷键仍然有效
         if (e.key === 'Enter') {
@@ -606,64 +592,42 @@ export default function YamlGenerator() {
           setStep(2);
         }
       }
-
-
-
-      // 第四页：按回车提交文件或创建新的元信息（但不在特殊组件中时）
-      if (step === 4 && e.key === 'Enter' && !isInSpecialComponent) {
-        if (!hasDownloaded) {
-          // If user is authenticated, submit to database; otherwise download file
-          if (user) {
-            submitYaml();
-          } else {
-            downloadYaml();
-            setHasDownloaded(true);
-          }
-        } else {
-          createNewMetadata();
-        }
-      }
-
-      // 第四页：提交成功后，按 'm' 返回主页
-      if (step === 4 && submissionSuccess && e.key === 'm' && !isInSpecialComponent) {
-        e.preventDefault();
-        router.push('/');
-      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [step, selectedTypeIndex, validateStep2, validateStep3, getHighlightedFieldIds, resetForm, setHighlightedFields, setStep, submitYaml, createNewMetadata, hasDownloaded, submissionSuccess, router]);
 
-  // 处理步骤变化和自动focus
   useEffect(() => {
-    // 只有当步骤向前进时才自动focus（进入新页面）
+    if (previousStep === 3 && step !== 3) {
+      setPreviewWasOpen(showPreview);
+      setShowPreview(false);
+    } else if (step === 3 && previousStep !== 3 && previewWasOpen) {
+      setShowPreview(true);
+    }
     if (step > previousStep) {
       setTimeout(() => {
         let elementToFocus: HTMLElement | null = null;
         
         if (step === 2) {
-          // 第二页：不自动focus，因为默认是上传文件模式
-          return; // 提前返回，避免下面的通用focus逻辑
+          return;
         } else if (step === 3) {
-          // 第三页：根据文件类型focus第一个输入框，但只有当该元素为空时才focus
           if (fileType === 'book') {
             elementToFocus = document.getElementById('title');
             if (elementToFocus && elementToFocus instanceof HTMLInputElement && (formData.data as BookData).title?.trim()) {
-              elementToFocus = null; // 如果已有内容，不focus
+              elementToFocus = null;
             }
           } else if (fileType === 'test') {
-            // 试题页面：focus到学院下拉框（但不触发下拉），只有当学院为空时才focus
             const collegeMultiSelect = document.querySelector('[data-testid="college-multiselect"] [role="combobox"]') as HTMLElement;
             if (collegeMultiSelect && (formData.data as TestData).college?.length > 0) {
-              elementToFocus = null; // 如果已选择学院，不focus
+              elementToFocus = null;
             } else {
               elementToFocus = collegeMultiSelect;
             }
           } else if (fileType === 'doc') {
             elementToFocus = document.getElementById('doc-title');
             if (elementToFocus && elementToFocus instanceof HTMLInputElement && (formData.data as DocData).title?.trim()) {
-              elementToFocus = null; // 如果已有内容，不focus
+              elementToFocus = null;
             }
           }
         }
@@ -671,1400 +635,43 @@ export default function YamlGenerator() {
         if (elementToFocus) {
           elementToFocus.focus();
         }
-      }, 100); // 延迟一点确保DOM已更新
+      }, 100);
     }
     
     setPreviousStep(step);
-  }, [step, previousStep, fileType, formData.url]);
+  }, [step, previousStep, fileType, formData.url, showPreview, previewWasOpen]);
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">选择文件类型</h2>
-        <p className="text-muted-foreground">
-          请根据您要上传的文件选择对应的类型
-        </p>
-      </div>
+  useEffect(() => {
+    if (showPreview) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${
-            selectedTypeIndex === 0 ? "ring-2 ring-primary" : ""
-          }`}
-          onClick={() => {
-            setSelectedTypeIndex(0);
-            resetForm("book");
-          }}
-        >
-          <CardHeader className="text-center pb-3 sm:pb-6 relative">
-            <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-blue-500 dark:text-blue-400" />
-            <CardTitle className="text-base sm:text-lg">书籍 (Book)</CardTitle>
-            <Button
-              className="absolute top-0 right-0 pointer-events-none"
-              variant="ghost"
-              onClick={() => {
-                setSelectedTypeIndex(0);
-                resetForm("book");
-              }}
-            >
-              <ButtonKbd>1</ButtonKbd>
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <CardDescription className="text-sm mb-2 sm:mb-3">
-              正式出版的教育类PDF电子书籍
-            </CardDescription>
-            <div className="hidden sm:block space-y-1 text-xs text-muted-foreground">
-              <div>• 必须是PDF格式</div>
-              <div>• 正式出版物</div>
-              <div>• 教育资源</div>
-            </div>
-            <div className="sm:hidden flex flex-wrap gap-1 text-xs text-muted-foreground">
-              <span className="bg-muted px-2 py-1 rounded">PDF格式</span>
-              <span className="bg-muted px-2 py-1 rounded">正式出版物</span>
-            </div>
-          </CardContent>
-        </Card>
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showPreview]);
 
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${
-            selectedTypeIndex === 1 ? "ring-2 ring-primary" : ""
-          }`}
-          onClick={() => {
-            setSelectedTypeIndex(1);
-            resetForm("test");
-          }}
-        >
-          <CardHeader className="text-center pb-3 sm:pb-6 relative">
-            <ClipboardList className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-green-500 dark:text-green-400" />
-            <CardTitle className="text-base sm:text-lg">试题 (Test)</CardTitle>
-            <Button
-              className="absolute top-0 right-0 pointer-events-none"
-              variant="ghost"
-              onClick={() => {
-                setSelectedTypeIndex(1);
-                resetForm("test");
-              }}
-            >
-              <ButtonKbd>2</ButtonKbd>
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <CardDescription className="text-sm mb-2 sm:mb-3">
-              北京邮电大学期中/期末考试真题
-            </CardDescription>
-            <div className="hidden sm:block space-y-1 text-xs text-muted-foreground">
-              <div>• 来自北邮</div>
-              <div>• 期中/期末考试</div>
-              <div>• 真题（非题库）</div>
-            </div>
-            <div className="sm:hidden flex flex-wrap gap-1 text-xs text-muted-foreground">
-              <span className="bg-muted px-2 py-1 rounded">北邮</span>
-              <span className="bg-muted px-2 py-1 rounded">期中/期末</span>
-            </div>
-          </CardContent>
-        </Card>
+  useEffect(() => {
+    if (uploadedFile) {
+      const newBlobUrl = URL.createObjectURL(uploadedFile);
+      setBlobUrl(newBlobUrl);
+      return () => {
+        URL.revokeObjectURL(newBlobUrl);
+      };
+    } else {
+      setBlobUrl('');
+    }
+  }, [uploadedFile]);
 
-        <Card
-          className={`cursor-pointer transition-all hover:shadow-md ${
-            selectedTypeIndex === 2 ? "ring-2 ring-primary" : ""
-          }`}
-          onClick={() => {
-            setSelectedTypeIndex(2);
-            resetForm("doc");
-          }}
-        >
-          <CardHeader className="text-center pb-3 sm:pb-6 relative">
-            <FileText className="w-8 h-8 sm:w-12 sm:h-12 mx-auto text-purple-500 dark:text-purple-400" />
-            <CardTitle className="text-base sm:text-lg">资料 (Doc)</CardTitle>
-            <Button
-              className="absolute top-0 right-0 pointer-events-none"
-              variant="ghost"
-              onClick={() => {
-                setSelectedTypeIndex(2);
-                resetForm("doc");
-              }}
-            >
-              <ButtonKbd>3</ButtonKbd>
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <CardDescription className="text-sm mb-2 sm:mb-3">
-              课程相关的学习和复习资料
-            </CardDescription>
-            <div className="hidden sm:block space-y-1 text-xs text-muted-foreground">
-              <div>• PDF或ZIP格式</div>
-              <div>• 教育资源</div>
-              <div>• 对应具体课程</div>
-            </div>
-            <div className="sm:hidden flex flex-wrap gap-1 text-xs text-muted-foreground">
-              <span className="bg-muted px-2 py-1 rounded">PDF/ZIP</span>
-              <span className="bg-muted px-2 py-1 rounded">课程资料</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex flex-col items-center space-y-2">
-        <Button onClick={() => {
-          const fileTypes: FileType[] = ['book', 'test', 'doc'];
-          resetForm(fileTypes[selectedTypeIndex]);
-          setStep(2);
-        }} size="lg">
-          下一步：填写基本信息
-          <ButtonKbd invert={true}>x</ButtonKbd>
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">上传文件</h2>
-        <p className="text-muted-foreground">上传文件或粘贴文件链接</p>
-        <Badge variant="outline">
-          {fileType === "book" ? "书籍" : fileType === "test" ? "试题" : "资料"}
-        </Badge>
-      </div>
-
-      {/* 输入方式选择 */}
-      <div className="space-y-4">
-        <Label>选择输入方式</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              inputMethod === 'upload' ? "ring-2 ring-primary" : ""
-            }`}
-            onClick={() => setInputMethod('upload')}
-          >
-            <CardHeader className="text-center pb-3 relative">
-              <UploadIcon className="w-8 h-8 mx-auto text-green-500 dark:text-green-400" />
-              <CardTitle className="text-base">
-                上传文件
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-0 absolute top-2 right-3 pointer-events-none"
-                  onClick={() => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      url: "",
-                      id: "",
-                    }))
-                    setUploadedFileInfo(null)
-                    setInputMethod('upload')
-                  }}
-                >
-                  <ButtonKbd>1</ButtonKbd>
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <CardDescription className="text-sm text-center">
-                本地文件，需要上传
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              inputMethod === 'url' ? "ring-2 ring-primary" : ""
-            }`}
-            onClick={() => setInputMethod('url')}
-          >
-            <CardHeader className="text-center pb-3 relative">
-              <FileText className="w-8 h-8 mx-auto text-blue-500 dark:text-blue-400" />
-              <CardTitle className="text-base">
-                粘贴链接
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-0 absolute top-2 right-3 pointer-events-none"
-                  onClick={() => setInputMethod('url')}
-                >
-                  <ButtonKbd>2</ButtonKbd>
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <CardDescription className="text-sm text-center">
-                已有文件URL，直接粘贴
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* 根据选择的方式显示不同的输入组件 */}
-      {inputMethod === 'upload' ? (
-        <div className="space-y-2">
-          <FileUpload
-            allowedTypes={fileType === "book" ? ["pdf"] : fileType === "test" ? ["pdf"] : ["pdf", "zip"]}
-            onUploadSuccess={(key: string, fileInfo?: { name: string; size: number }) => {
-              // 构建完整的URL
-              const fullUrl = `https://byrdocs.org/files/${key}`;
-              const md5 = extractMD5FromURL(fullUrl);
-              const detectedFileType = extractFileTypeFromURL(fullUrl, fileType);
-              
-              // 保存文件信息
-              if (fileInfo) {
-                setUploadedFileInfo(fileInfo);
-              }
-              
-              setFormData((prev) => ({
-                ...prev,
-                url: fullUrl,
-                id: md5,
-                data: {
-                  ...prev.data,
-                  filetype: detectedFileType,
-                },
-              }));
-              
-              setUrlValidationError("");
-            }}
-            onUploadError={(error) => {
-              setUrlValidationError(`上传失败: ${error}`);
-            }}
-            onSwitchToUrl={(url: string) => {
-              setInputMethod('url');
-              const md5 = extractMD5FromURL(url);
-              const detectedFileType = extractFileTypeFromURL(url, fileType);
-              
-              setFormData((prev) => ({
-                type: prev.type,
-                url: url,
-                id: md5,
-                data: {
-                  ...prev.data,
-                  filetype: detectedFileType,
-                },
-              }));
-              
-              setUrlValidationError("");
-            }}
-            initialUploadedKey={formData.url ? extractFileNameFromURL(formData.url) : undefined}
-            initialFileInfo={uploadedFileInfo}
-            onReset={() => {
-              setFormData((prev) => ({
-                ...prev,
-                url: "",
-                id: "",
-                data: {
-                  ...prev.data,
-                  filetype: "pdf",
-                },
-              }));
-              setUploadedFileInfo(null);
-            }}
-            className="max-w-none"
-          />
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <Label htmlFor="url">
-            文件 URL *
-            <LabelKbd>u</LabelKbd>
-          </Label>
-          <div className="relative">
-            <Input
-              id="url"
-              className="text-sm w-full pr-10"
-              placeholder="https://byrdocs.org/files/..."
-              value={formData.url}
-              onChange={(e) => {
-                const url = e.target.value;
-                const md5 = extractMD5FromURL(url);
-                
-                // 验证文件格式
-                const validation = validateURLFileType(url, fileType);
-                if (!validation.isValid && validation.error) {
-                  setUrlValidationError(validation.error);
-                } else {
-                  setUrlValidationError("");
-                }
-                
-                // 只有当URL不为空时才提取文件类型，否则使用默认的pdf
-                const detectedFileType = url.trim() ? extractFileTypeFromURL(url, fileType) : "pdf";
-                setFormData((prev) => ({
-                  ...prev,
-                  url: url,
-                  id: md5,
-                  data: {
-                    ...prev.data,
-                    filetype: detectedFileType,
-                  },
-                }));
-              }}
-            />
-            <kbd className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs bg-muted text-muted-foreground border rounded">⏎</kbd>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            已上传文件的 URL
-          </p>
-          {urlValidationError && (
-            <p className="text-xs text-red-500">{urlValidationError}</p>
-          )}
-        </div>
-      )}
-
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => {
-          setPreviousStep(step); // 防止触发自动focus
-          setStep(1);
-        }}
-        >
-          上一步
-          <ButtonKbd>z</ButtonKbd>
-        </Button>
-        <Button onClick={() => setStep(3)} disabled={!validateStep2()}>
-          下一步：填写详细信息
-          <ButtonKbd invert={true}>x</ButtonKbd>
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderBookForm = () => {
-    const data = formData.data as BookData;
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2" id="book-title">
-          <Label htmlFor="title">
-            书名 *
-            <LabelKbd>b</LabelKbd>
-          </Label>
-          <Input
-            id="title"
-            className={`text-sm ${highlightedFields.includes('book-title') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-            placeholder="例如：理论物理学教程 第10卷 物理动理学 第2版"
-            value={data.title}
-            onChange={(e) => {
-              setFormData((prev) => ({
-                ...prev,
-                data: { ...prev.data, title: e.target.value } as BookData,
-              }));
-              // 清除高亮
-              if (highlightedFields.includes('book-title')) {
-                setHighlightedFields(prev => prev.filter(field => field !== 'book-title'));
-              }
-            }}
-          />
-          <p className="text-xs text-muted-foreground">
-            需与原书保持一致，中文书使用中文书名
-          </p>
-        </div>
-
-        <div className="space-y-2" id="book-authors">
-          <Label htmlFor="authors-0">
-            作者 *
-            <LabelKbd>a</LabelKbd>
-          </Label>
-          {data.authors.map((author, index) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                id={`authors-${index}`}
-                className={`text-sm ${highlightedFields.includes('book-authors') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                placeholder="例如：Лифшиц, Евгений Михайлович(粟弗席兹)"
-                value={author}
-                onChange={(e) => {
-                  updateArrayItem("authors", index, e.target.value);
-                  // 清除高亮
-                  if (highlightedFields.includes('book-authors')) {
-                    setHighlightedFields(prev => prev.filter(field => field !== 'book-authors'));
-                  }
-                }}
-              />
-              {data.authors.length > 1 && (
-                <Button
-                  variant="outline"
-                  className="px-2"
-                  onClick={() => removeArrayItem("authors", index)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {index < 9 && <ButtonKbd>{"s" + (index + 1)}</ButtonKbd>}
-                </Button>
-              )}
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => addArrayItem("authors")}
-            className="w-full"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            添加作者
-            <ButtonKbd>q</ButtonKbd>
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            尽量使用原名，可酌情标注中译名
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor={data.translators.length === 0 ? "add-translator" : "translators-0"}>
-            译者（可选）
-            <LabelKbd>t</LabelKbd>
-          </Label>
-          {data.translators.length === 0 ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => addArrayItem("translators")}
-              className="w-full"
-              id="add-translator"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              添加译者
-              <ButtonKbd>y</ButtonKbd>
-            </Button>
-          ) : (
-            <>
-              {data.translators.map((translator, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    id={`translators-${index}`}
-                    className="text-sm"
-                    placeholder="例如：徐锡申"
-                    value={translator}
-                    onChange={(e) =>
-                      updateArrayItem("translators", index, e.target.value)
-                    }
-                  />
-                  <Button
-                    variant="outline"
-                    className="px-2"
-                    onClick={() => removeArrayItem("translators", index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    {data.translators.length == 1 
-                      ? <ButtonKbd>{"e"}</ButtonKbd>
-                      : index < 9 && <ButtonKbd>{"e" + (index + 1)}</ButtonKbd>
-                    }
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addArrayItem("translators")}
-                className="w-full"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                添加译者
-                <ButtonKbd>y</ButtonKbd>
-              </Button>
-            </>
-          )}
-          <p className="text-xs text-muted-foreground">如没有译者可留空</p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="edition">
-              版次
-              <LabelKbd>l</LabelKbd>
-            </Label>
-            <Input
-              id="edition"
-              className="text-sm"
-              placeholder="例如：1"
-              value={data.edition}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  data: { ...prev.data, edition: e.target.value } as BookData,
-                }))
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="publisher">
-              出版社
-              <LabelKbd>c</LabelKbd>
-            </Label>
-            <Input
-              id="publisher"
-              className="text-sm"
-              placeholder="例如：高等教育出版社"
-              value={data.publisher}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  data: { ...prev.data, publisher: e.target.value } as BookData,
-                }))
-              }
-            />
-          </div>
-
-          <div className="space-y-2" id="book-publish-year">
-            <Label htmlFor="publish_year">
-              出版年份
-              <LabelKbd>f</LabelKbd>
-            </Label>
-            <Input
-              id="publish_year" 
-              className={`text-sm ${
-                (data.publish_year && !validateYear(data.publish_year)) || 
-                highlightedFields.includes('book-publish-year') 
-                ? "border-red-500 ring-1 ring-red-500" : ""
-              }`}
-              type="number"
-              step="1"
-              min="1"
-              max={new Date().getFullYear()}
-              placeholder="例如：2008"
-              value={data.publish_year}
-              onChange={(e) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  data: {
-                    ...prev.data,
-                    publish_year: e.target.value,
-                  } as BookData,
-                }));
-                // 清除高亮
-                if (highlightedFields.includes('book-publish-year')) {
-                  setHighlightedFields(prev => prev.filter(field => field !== 'book-publish-year'));
-                }
-              }}
-            />
-            {data.publish_year && !validateYear(data.publish_year) && (
-              <p className="text-xs text-red-500">
-                出版年份必须是有效年份，不能超过 {new Date().getFullYear()} 年
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2" id="book-isbn">
-          <Label htmlFor="isbn-0">
-            ISBN *
-            <LabelKbd>i</LabelKbd>
-          </Label>
-          {data.isbn.map((isbn, index) => (
-            <div key={index} className="space-y-1">
-              <div className="flex gap-2">
-                <Input
-                  id={`isbn-${index}`}
-                  placeholder="例如：978-7-04-023069-7"
-                  value={isbn}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    updateArrayItem("isbn", index, value);
-
-                    // 清除高亮
-                    if (highlightedFields.includes('book-isbn')) {
-                      setHighlightedFields(prev => prev.filter(field => field !== 'book-isbn'));
-                    }
-
-                    // 如果输入完成且格式正确，自动格式化
-                    if (validateISBN(value)) {
-                      const formatted = formatISBN(value);
-                      if (formatted !== value) {
-                        setTimeout(
-                          () => updateArrayItem("isbn", index, formatted),
-                          0
-                        );
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // 失去焦点时也尝试格式化
-                    const value = e.target.value;
-                    if (validateISBN(value)) {
-                      const formatted = formatISBN(value);
-                      if (formatted !== value) {
-                        updateArrayItem("isbn", index, formatted);
-                      }
-                    }
-                  }}
-                  className={`text-sm ${
-                    (isbn && !validateISBN(isbn)) || 
-                    highlightedFields.includes('book-isbn') 
-                    ? "border-red-500 ring-1 ring-red-500" : ""
-                  }`}
-                />
-                {data.isbn.length > 1 && (
-                  <Button
-                    variant="outline"
-                    className="px-2"
-                    onClick={() => removeArrayItem("isbn", index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    {index < 9 && <ButtonKbd>{"d" + (index + 1)}</ButtonKbd>}
-                  </Button>
-                )}
-              </div>
-              {isbn && !validateISBN(isbn) && (
-                <p className="text-xs text-red-500">
-                  ISBN 格式不正确，请输入有效的 ISBN 格式
-                </p>
-              )}
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => addArrayItem("isbn")}
-            className="w-full"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            添加 ISBN
-            <ButtonKbd>w</ButtonKbd>
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            支持 ISBN-10 和 ISBN-13 格式
-          </p>
-        </div>
-      </div>
-    );
-  };
-
-  const renderTestForm = () => {
-    const data = formData.data as TestData;
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="school">
-            学院
-            <LabelKbd>s</LabelKbd>
-          </Label>
-          <CollegeMultiSelect
-            id="school"
-            selectedColleges={data.college.filter((c) => c.trim())}
-            onCollegesChange={(colleges) =>
-              setFormData((prev) => ({
-                ...prev,
-                data: { ...prev.data, college: colleges } as TestData,
-              }))
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            只有确认该学院实际考过此试卷时才填写
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <Label>课程信息</Label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="course-type">
-                课程类型
-                <LabelKbd>c</LabelKbd>
-              </Label>
-              <div className="flex gap-2">
-                <Select
-                  value={data.course.type}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: {
-                        ...prev.data,
-                        course: {
-                          ...(prev.data as TestData).course,
-                          type: value,
-                        },
-                      } as TestData,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="course-type">
-                    <SelectValue placeholder="选择课程类型" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="本科">本科</SelectItem>
-                    <SelectItem value="研究生">研究生</SelectItem>
-                  </SelectContent>
-                </Select>
-                {data.course.type && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          course: {
-                            ...(prev.data as TestData).course,
-                            type: "",
-                          },
-                        } as TestData,
-                      }))
-                    }
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2" id="test-course-name">
-              <Label htmlFor="course-name">
-                课程名称 *
-                <LabelKbd>t</LabelKbd>
-              </Label>
-              <CourseNameInput
-                id="course-name"
-                value={data.course.name}
-                onChange={(value) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: {
-                      ...prev.data,
-                      course: {
-                        ...(prev.data as TestData).course,
-                        name: value,
-                      },
-                    } as TestData,
-                  }));
-                  // 清除高亮
-                  if (highlightedFields.includes('test-course-name')) {
-                    setHighlightedFields(prev => prev.filter(field => field !== 'test-course-name'));
-                  }
-                }}
-                courseList={courseList}
-                isHighlighted={highlightedFields.includes('test-course-name')}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4" id="test-time-range">
-          <Label>时间信息 *</Label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="start-year">
-                开始年份 *
-                <LabelKbd>b</LabelKbd>
-              </Label>
-              <Input
-                id="start-year"
-                className={`text-sm ${
-                  (data.time.start && !validateYear(data.time.start)) || 
-                  highlightedFields.includes('test-time-range') 
-                  ? "border-red-500 ring-1 ring-red-500" : ""
-                }`}
-                type="number"
-                step="1"
-                min="2000"
-                max={new Date().getFullYear()}
-                placeholder="例如：2023"
-                value={data.time.start}
-                onChange={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: {
-                      ...prev.data,
-                      time: {
-                        ...(prev.data as TestData).time,
-                        start: e.target.value,
-                      },
-                    } as TestData,
-                  }));
-                  // 清除高亮
-                  if (highlightedFields.includes('test-time-range')) {
-                    setHighlightedFields(prev => prev.filter(field => field !== 'test-time-range'));
-                  }
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="end-year">
-                结束年份 *
-                <LabelKbd>e</LabelKbd>
-              </Label>
-              <Input
-                id="end-year"
-                className={`text-sm ${
-                  (data.time.end && !validateYear(data.time.end)) || 
-                  highlightedFields.includes('test-time-range') 
-                  ? "border-red-500 ring-1 ring-red-500" : ""
-                }`}
-                type="number"
-                step="1"
-                min="2000"
-                max={new Date().getFullYear()}
-                placeholder="例如：2024"
-                value={data.time.end}
-                onChange={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: {
-                      ...prev.data,
-                      time: {
-                        ...(prev.data as TestData).time,
-                        end: e.target.value,
-                      },
-                    } as TestData,
-                  }));
-                  // 清除高亮
-                  if (highlightedFields.includes('test-time-range')) {
-                    setHighlightedFields(prev => prev.filter(field => field !== 'test-time-range'));
-                  }
-                }}
-              />
-            </div>
-            
-
-          {(() => {
-            const yearValidation = validateYearRange(data.time.start, data.time.end);
-            return !yearValidation.isValid && yearValidation.error && highlightedFields.includes('test-time-range') && (
-              <p className="text-xs text-red-500 col-span-2">
-                {yearValidation.error}
-              </p>
-            );
-          })()}
-            <div className="space-y-2">
-              <Label htmlFor="semester">
-                学期
-                <LabelKbd>f</LabelKbd>
-              </Label>
-              <div className="flex gap-2">
-                <Select
-                  value={data.time.semester}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: {
-                        ...prev.data,
-                        time: {
-                          ...(prev.data as TestData).time,
-                          semester: value,
-                        },
-                      } as TestData,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="semester">
-                    <SelectValue placeholder="选择学期" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="First">第一学期</SelectItem>
-                    <SelectItem value="Second">第二学期</SelectItem>
-                  </SelectContent>
-                </Select>
-                {data.time.semester && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          time: {
-                            ...(prev.data as TestData).time,
-                            semester: "",
-                          },
-                        } as TestData,
-                      }))
-                    }
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="stage">
-                考试阶段
-                <LabelKbd>g</LabelKbd>
-              </Label>
-              <div className="flex gap-2">
-                <Select
-                  value={data.time.stage}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: {
-                        ...prev.data,
-                        time: { ...(prev.data as TestData).time, stage: value },
-                      } as TestData,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="stage">
-                    <SelectValue placeholder="选择考试阶段" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="期中">期中</SelectItem>
-                    <SelectItem value="期末">期末</SelectItem>
-                  </SelectContent>
-                </Select>
-                {data.time.stage && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          time: { ...(prev.data as TestData).time, stage: "" },
-                        } as TestData,
-                      }))
-                    }
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2" id="test-content">
-          <Label htmlFor="test-content">
-            内容类型 *
-            <LabelKbd>h</LabelKbd>
-          </Label>
-          <CheckboxGroup
-            id="test-content"
-            options={["原题", "答案"]}
-            selectedValues={data.content}
-            onChange={(newContent: string[]) => {
-              setFormData((prev) => ({
-                ...prev,
-                data: {
-                  ...prev.data,
-                  content: newContent,
-                } as TestData,
-              }));
-              // 清除高亮
-              if (highlightedFields.includes('test-content')) {
-                setHighlightedFields(prev => prev.filter(field => field !== 'test-content'));
-              }
-            }}
-            isHighlighted={highlightedFields.includes('test-content')}
-          />
-          <p className="text-xs text-muted-foreground">至少选择一项</p>
-        </div>
-      </div>
-    );
-  };
-
-  const renderDocForm = () => {
-    const data = formData.data as DocData;
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2" id="doc-title-div">
-          <Label htmlFor="doc-title">
-            资料标题 *
-            <LabelKbd>t</LabelKbd>
-          </Label>
-          <Input
-            id="doc-title"
-            className={`text-sm ${highlightedFields.includes('doc-title') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-            placeholder="例如：工程制图习题解答"
-            value={data.title}
-            onChange={(e) => {
-              setFormData((prev) => ({
-                ...prev,
-                data: { ...prev.data, title: e.target.value } as DocData,
-              }));
-              // 清除高亮
-              if (highlightedFields.includes('doc-title')) {
-                setHighlightedFields(prev => prev.filter(field => field !== 'doc-title'));
-              }
-            }}
-          />
-          <p className="text-xs text-muted-foreground">
-            请自行总结一个合适的标题
-          </p>
-        </div>
-
-
-
-        <div className="space-y-2" id="doc-course">
-          <Label>课程信息 *</Label>
-          <div className="space-y-4">
-            {data.course.map((course, index) => (
-              <Card key={index} className="p-4" data-course-index={index}>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">课程 {index + 1}</h4>
-                    {data.course.length > 1 && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            data: {
-                              ...prev.data,
-                              course: (prev.data as DocData).course.filter(
-                                (_, i) => i !== index
-                              ),
-                            } as DocData,
-                          }))
-                        }
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <ButtonKbd
-                          className="text-muted/80 dark:text-muted-foreground bg-white/10 dark:bg-white/5 border-white/20 dark:border-white/10"
-                        >
-                          {"d" + (index + 1).toString()}
-                        </ButtonKbd>
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor={`course-type-${index}`}>
-                        课程类型
-                        {data.course.length == 1 && <LabelKbd>{"e"}</LabelKbd>}
-                        {data.course.length > 1 && index < 9 && <LabelKbd>{"e" + (index + 1).toString()}</LabelKbd>}
-                      </Label>
-                      <div className="flex gap-2">
-                        <Select
-                          value={course.type}
-                          onValueChange={(value) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              data: {
-                                ...prev.data,
-                                course: (prev.data as DocData).course.map((c, i) =>
-                                  i === index ? { ...c, type: value } : c
-                                ),
-                              } as DocData,
-                            }))
-                          }
-                        >
-                          <SelectTrigger id={`course-type-${index}`}>
-                            <SelectValue placeholder="选择课程类型" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="本科">本科</SelectItem>
-                            <SelectItem value="研究生">研究生</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {course.type && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                data: {
-                                  ...prev.data,
-                                  course: (prev.data as DocData).course.map(
-                                    (c, i) => (i === index ? { ...c, type: "" } : c)
-                                  ),
-                                } as DocData,
-                              }))
-                            }
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor={`course-name-${index}`}>
-                        课程名称 *
-                        {data.course.length == 1 && <LabelKbd>{"n"}</LabelKbd>}
-                        {data.course.length > 1 && index < 9 && <LabelKbd>{"n" + (index + 1).toString()}</LabelKbd>}
-                      </Label>
-                      <CourseNameInput
-                        id={`course-name-${index}`}
-                        value={course.name}
-                        onChange={(value) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            data: {
-                              ...prev.data,
-                              course: (prev.data as DocData).course.map((c, i) =>
-                                i === index ? { ...c, name: value } : c
-                              ),
-                            } as DocData,
-                          }));
-                          // 清除高亮
-                          if (highlightedFields.includes('doc-course')) {
-                            setHighlightedFields(prev => prev.filter(field => field !== 'doc-course'));
-                          }
-                        }}
-                        courseList={courseList}
-                        isHighlighted={highlightedFields.includes('doc-course')}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setFormData((prev) => {
-                const currentCourses = (prev.data as DocData).course;
-                const newIndex = currentCourses.length;
-                
-                // 延迟聚焦到新课程的课程类型下拉框
-                setTimeout(() => {
-                  const selectElement = document.querySelector(`[data-course-index="${newIndex}"] [role="combobox"]`) as HTMLElement;
-                  if (selectElement) {
-                    selectElement.focus();
-                  }
-                }, 100);
-                
-                return {
-                  ...prev,
-                  data: {
-                    ...prev.data,
-                    course: [
-                      ...currentCourses,
-                      { type: "", name: "" },
-                    ],
-                  } as DocData,
-                };
-              });
-            }}
-            className="w-full"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            添加课程
-            <ButtonKbd>c</ButtonKbd>
-          </Button>
-        </div>
-
-        <div className="space-y-2" id="doc-content">
-          <Label htmlFor="doc-content">
-            内容类型 *
-            <LabelKbd>h</LabelKbd>
-          </Label>
-          <CheckboxGroup
-            id="doc-content"
-            options={["思维导图", "题库", "答案", "知识点", "课件"]}
-            selectedValues={data.content}
-            onChange={(newContent: string[]) => {
-              setFormData((prev) => ({
-                ...prev,
-                data: {
-                  ...prev.data,
-                  content: newContent,
-                } as DocData,
-              }));
-              // 清除高亮
-              if (highlightedFields.includes('doc-content')) {
-                setHighlightedFields(prev => prev.filter(field => field !== 'doc-content'));
-              }
-            }}
-            isHighlighted={highlightedFields.includes('doc-content')}
-          />
-          <p className="text-xs text-muted-foreground">至少选择一项</p>
-        </div>
-      </div>
-    );
-  };
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">详细信息</h2>
-        <p className="text-muted-foreground">
-          填写
-          {fileType === "book" ? "书籍" : fileType === "test" ? "试题" : "资料"}
-          的详细信息
-        </p>
-        <Badge variant="outline">
-          {fileType === "book" ? "书籍" : fileType === "test" ? "试题" : "资料"}
-        </Badge>
-      </div>
-
-      {fileType === "book" && renderBookForm()}
-      {fileType === "test" && renderTestForm()}
-      {fileType === "doc" && renderDocForm()}
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between">
-                      <Button variant="outline" onClick={() => {
-            setPreviousStep(step); // 防止触发自动focus
-            setStep(2);
-          }}
-          >
-            上一步
-            <ButtonKbd>z</ButtonKbd>
-          </Button>
-            <Button onClick={() => {
-              if (validateStep3()) {
-                setHighlightedFields([]);
-                setHasDownloaded(false);
-                setStep(4);
-              } else {
-                const highlightIds = getHighlightedFieldIds();
-                setHighlightedFields(highlightIds);
-                // 滚动到第一个高亮字段并聚焦
-                if (highlightIds.length > 0) {
-                  setTimeout(() => {
-                    const firstHighlightedElement = document.getElementById(highlightIds[0]);
-                    if (firstHighlightedElement) {
-                      firstHighlightedElement.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' 
-                      });
-                      // 如果是输入框，则focus它
-                      if (firstHighlightedElement instanceof HTMLInputElement || 
-                          firstHighlightedElement instanceof HTMLTextAreaElement) {
-                        firstHighlightedElement.focus();
-                      } else {
-                        // 如果是其他元素，尝试找到其中的输入框
-                        const inputElement = firstHighlightedElement.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
-                        if (inputElement) {
-                          inputElement.focus();
-                        }
-                      }
-                    }
-                  }, 100);
-                }
-              }
-            }}
-            >
-              下一步：预览和提交
-              <ButtonKbd invert={true}>x</ButtonKbd>
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">预览和提交</h2>
-        <p className="text-muted-foreground">检查生成的YAML文件并提交</p>
-      </div>
-      
-      <div className="relative">
-        <div className={`p-4 rounded-lg text-sm overflow-x-auto border yaml-highlight ${
-          actualTheme === 'dark' ? 'yaml-dark' : 'yaml-light'
-        }`}>
-          <pre
-            className="whitespace-pre-wrap m-0 pr-12"
-            dangerouslySetInnerHTML={{
-              __html: hljs.highlight(generateYaml(fileType, formData), { language: "yaml" }).value,
-            }}
-          />
-        </div>
-        <CopyButton
-          content={generateYaml(fileType, formData)}
-          className="absolute top-2 right-2 h-8 w-14 p-0"
-          title="复制YAML内容"
-          shortcut="c"
-        />
-      </div>
-      
-      {/* Success message - styled like /bind page */}
-      {submissionSuccess && (
-        <div className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 border rounded-lg p-3 px-3 sm:px-6">
-          <div className="flex flex-row items-center gap-3 justify-between">
-            <div className="space-y-2 py-2">
-              <p className="font-medium text-green-800 dark:text-green-200 flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2" />
-                暂存成功
-              </p>
-              <p className="text-muted-foreground text-sm">
-                如果没有其他文件，请在主页提交更改
-              </p>
-            </div>
-            <Button 
-              onClick={() => router.push('/')}
-              className="flex items-center bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white"
-            >
-              <span>返回主页</span>
-              <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">m</ButtonKbd>
-            </Button>
-          </div>
-        </div>
-      )}
-      
-      <div className="flex flex-col sm:flex-row justify-between gap-2">
-        {!hasDownloaded ? (
-          <>
-            <Button variant="outline" onClick={() => {
-              setPreviousStep(step); // 防止触发自动focus
-              setStep(3);
-            }}
-            >
-              上一步
-              <ButtonKbd>z</ButtonKbd>
-            </Button>
-            {user ? (
-              <Button
-                onClick={submitYaml}
-                disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
-              >
-                {isSubmitting ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                    提交中...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    暂存
-                  </>
-                )}
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">s</ButtonKbd>
-              </Button>
-            ) : (
-              <Button
-                onClick={downloadYaml}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
-              >
-                <Download className="w-4 h-4 mr-1" />
-                下载 YAML 文件
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
-              </Button>
-            )}
-          </>
-        ) : (
-          <>
-            <Button variant="outline" onClick={() => {
-              setPreviousStep(step);
-              setStep(3);
-            }}
-            >
-              上一步
-              <ButtonKbd>z</ButtonKbd>
-            </Button>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={createNewMetadata}
-                className="flex items-center w-full sm:w-auto"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                创建新的元信息
-                <ButtonKbd>n</ButtonKbd>
-              </Button>
-              <Button
-                onClick={downloadYaml}
-                variant="outline"
-                // className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white w-full sm:w-auto"
-              >
-                <Download className="w-4 h-4 mr-1" />
-                下载 YAML 文件
-                <ButtonKbd>d</ButtonKbd>
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, []);
 
   return (
       <div className="p-4 pt-0">
@@ -2123,6 +730,19 @@ export default function YamlGenerator() {
         </div>
 
         <Card className="bg-card shadow-lg relative">
+          {/* 预览按钮 */}
+          {shouldShowPreviewButton() && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPreview(true)}
+              className="absolute right-16 top-4 z-10 hidden lg:flex"
+              title="预览文件"
+            >
+              <Eye className="w-4 h-4" />
+              <ButtonKbd>l</ButtonKbd>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -2134,15 +754,117 @@ export default function YamlGenerator() {
             <ButtonKbd className="sm:hidden">?</ButtonKbd>
           </Button>
           <CardContent className="p-8">
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
-            {step === 4 && renderStep4()}
+            {step === 1 && (
+              <Step1
+                selectedTypeIndex={selectedTypeIndex}
+                setSelectedTypeIndex={setSelectedTypeIndex}
+                resetForm={resetForm}
+                setStep={setStep}
+              />
+            )}
+            {step === 2 && (
+              <Step2
+                fileType={fileType}
+                inputMethod={inputMethod}
+                setInputMethod={setInputMethod}
+                formData={formData}
+                setFormData={setFormData}
+                uploadedFileInfo={uploadedFileInfo}
+                setUploadedFileInfo={setUploadedFileInfo}
+                urlValidationError={urlValidationError}
+                setUrlValidationError={setUrlValidationError}
+                setUploadedFile={setUploadedFile}
+                validateStep2={validateStep2}
+                setStep={setStep}
+                setPreviousStep={setPreviousStep}
+                step={step}
+              />
+            )}
+            {(step === 3 && !showPreview) && (
+              <Step3
+                fileType={fileType}
+                formData={formData}
+                courseList={courseList}
+                highlightedFields={highlightedFields}
+                setFormData={setFormData}
+                setHighlightedFields={setHighlightedFields}
+                updateArrayItem={updateArrayItem}
+                removeArrayItem={removeArrayItem}
+                addArrayItem={addArrayItem}
+                validateStep3={validateStep3}
+                getHighlightedFieldIds={getHighlightedFieldIds}
+                setStep={setStep}
+                setPreviousStep={setPreviousStep}
+                setHasDownloaded={setHasDownloaded}
+                step={step}
+              />
+            )}
+            {step === 4 && (
+              <Step4
+                fileType={fileType}
+                formData={formData}
+                actualTheme={actualTheme}
+                hasDownloaded={hasDownloaded}
+                isSubmitting={isSubmitting}
+                submissionSuccess={submissionSuccess}
+                user={user}
+                submitYaml={submitYaml}
+                downloadYaml={downloadYaml}
+                createNewMetadata={createNewMetadata}
+                setStep={setStep}
+                setPreviousStep={setPreviousStep}
+                step={step}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
       
-      {/* 快捷键帮助弹窗 */}
+      <PreviewOverlay
+        showPreview={showPreview}
+        uploadedFile={uploadedFile}
+        blobUrl={blobUrl}
+        fileType={fileType}
+        setShowPreview={setShowPreview}
+        setPreviousStep={setPreviousStep}
+        setStep={setStep}
+        step={step}
+        validateStep3={validateStep3}
+        setHighlightedFields={setHighlightedFields}
+        setHasDownloaded={setHasDownloaded}
+        getHighlightedFieldIds={getHighlightedFieldIds}
+      >
+        {fileType === "book" && (
+          <BookForm
+            data={formData.data as BookData}
+            highlightedFields={highlightedFields}
+            setFormData={setFormData}
+            setHighlightedFields={setHighlightedFields}
+            updateArrayItem={updateArrayItem}
+            removeArrayItem={removeArrayItem}
+            addArrayItem={addArrayItem}
+          />
+        )}
+        {fileType === "test" && (
+          <TestForm
+            data={formData.data as TestData}
+            highlightedFields={highlightedFields}
+            courseList={courseList}
+            setFormData={setFormData}
+            setHighlightedFields={setHighlightedFields}
+          />
+        )}
+        {fileType === "doc" && (
+          <DocForm
+            data={formData.data as DocData}
+            highlightedFields={highlightedFields}
+            courseList={courseList}
+            setFormData={setFormData}
+            setHighlightedFields={setHighlightedFields}
+          />
+        )}
+      </PreviewOverlay>
+      
       <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -2156,7 +878,6 @@ export default function YamlGenerator() {
           </DialogHeader>
           
           <div className="space-y-6">
-            {/* 全局快捷键 */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold">全局快捷键</h3>
               <div className="grid gap-3">
@@ -2191,7 +912,7 @@ export default function YamlGenerator() {
               </div>
             </div>
 
-            {step !== 3 && 
+            {(step === 1 || step == 2) && 
             <div className="space-y-3">
               <h3 className="text-lg font-semibold">当前页面快捷键</h3>
               <div className="grid gap-3">
@@ -2214,21 +935,6 @@ export default function YamlGenerator() {
                     <span className="text-sm">填写完 URL 后进入下一步</span>
                     <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
                   </div>
-                )}
-                
-                {step === 4 && (
-                  <>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm">{hasDownloaded ? '创建新的元信息' : '下载YAML文件'}</span>
-                      <kbd className="px-2 py-1 text-xs bg-background border rounded">Enter</kbd>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm">复制YAML内容</span>
-                      <div className="flex items-center gap-1">
-                        <kbd className="px-2 py-1 text-xs bg-background border rounded">C</kbd>
-                      </div>
-                    </div>
-                  </>
                 )}
               </div>
             </div>}

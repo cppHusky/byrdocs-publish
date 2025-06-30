@@ -23,9 +23,11 @@ pnpm deploy         # Build and deploy to Cloudflare Pages
 # Database
 pnpm db:generate    # Generate Prisma client
 pnpm db:push        # Push schema changes to D1 database
+pnpm db:apply-local # Apply schema changes to local D1 database
 
 # Code Quality
 pnpm lint           # Run ESLint
+npx tsc --noEmit    # Type checking without emitting files
 ```
 
 **Testing Code Correctness**: Always use `npx tsc --noEmit` to verify your code changes are correct before considering a task complete. Do NOT rely on `pnpm dev` for testing as it may not catch all build-time errors.
@@ -74,7 +76,7 @@ pnpm lint           # Run ESLint
 - Maximum file size handled by S3 configuration
 
 ### Validation Rules
-- ISBN: Supports both ISBN-10 and ISBN-13
+- ISBN: Supports both ISBN-10 and ISBN-13 (handled by `lib/isbn.ts`)
 - Years: Cannot exceed current year
 - Test year range: End year must be start year or start year + 1
 - Course names: Fetched from `https://files.byrdocs.org/metadata2.json`
@@ -83,6 +85,13 @@ pnpm lint           # Run ESLint
 - Includes schema references based on file type
 - Uses js-yaml for serialization
 - Formats with proper indentation and structure
+- Main logic in `lib/yaml.ts`
+
+### GitHub Integration
+- Users authenticate via GitHub OAuth
+- Repository binding system for automated PR creation
+- File changes tracked in database for PR workflow
+- Webhook handling for installation events
 
 ## Development Tips
 

@@ -35,6 +35,7 @@ interface FileUploadProps {
   initialFileInfo?: { name: string; size: number } | null; // 初始文件信息
   onReset?: () => void; // 重置回调
   onSwitchToUrl?: (url: string) => void; // 切换到粘贴链接模式的回调
+  onFileSelected?: (file: File | null) => void; // 文件选择回调
 }
 
 interface S3Credentials {
@@ -64,7 +65,8 @@ export default function FileUpload({
   initialUploadedKey,
   initialFileInfo,
   onReset,
-  onSwitchToUrl
+  onSwitchToUrl,
+  onFileSelected
 }: FileUploadProps) {
   const { token, isLoading } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -245,6 +247,7 @@ export default function FileUpload({
     }
 
     setSelectedFile(file);
+    onFileSelected?.(file);
     setUploadStatus('calculating');
     setMd5Progress(0);
     setUploadProgress(0);
@@ -267,6 +270,7 @@ export default function FileUpload({
         setMd5Progress(0);
         setUploadProgress(0);
         setSelectedFile(null);
+        onFileSelected?.(null);
         return false;
       }
       setErrorMessage('计算文件哈希值失败');
@@ -357,6 +361,7 @@ export default function FileUpload({
 
   const handleRemoveFile = () => {
     setSelectedFile(null);
+    onFileSelected?.(null);
     setUploadStatus('idle');
     setMd5Progress(0);
     setUploadProgress(0);
@@ -381,6 +386,7 @@ export default function FileUpload({
       const url = `https://byrdocs.org/files/${fileExistsError.md5}.${fileExistsError.extension}`;
       
       setSelectedFile(null);
+      onFileSelected?.(null);
       onReset?.();
       if (fileInputRef.current) {
         fileInputRef.current.value = '';

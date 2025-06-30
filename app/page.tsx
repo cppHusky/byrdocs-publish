@@ -13,7 +13,7 @@ export default function HomePage() {
   };
 
   const handleManageFiles = () => {
-    router.push("/add");
+    router.push("/edit");
   };
 
   return (
@@ -28,7 +28,7 @@ export default function HomePage() {
           </div>
 
           {/* 主要操作按钮 */}
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 sm:gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
             <Card
               className="cursor-pointer bg-background border-border transition-colors hover:bg-muted/50 group"
               onClick={handleAddFile}
@@ -49,7 +49,7 @@ export default function HomePage() {
             </Card>
 
             <Card
-              className="cursor-pointer bg-background border-border hover:bg-muted/50 group hidden"
+              className="cursor-pointer bg-background border-border hover:bg-muted/50 group"
               onClick={handleManageFiles}
             >
               <CardContent className="p-4 sm:p-6 md:p-8">

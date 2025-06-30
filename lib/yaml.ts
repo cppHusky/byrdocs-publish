@@ -23,9 +23,11 @@ export const generateYaml = (fileType: FileType, formData: FormData) => {
       yamlObject.data.authors = authors;
     }
 
-    const translators = data.translators.filter((t) => t.trim());
-    if (translators.length > 0) {
-      yamlObject.data.translators = translators;
+    if (data.translators) {
+      const translators = data.translators.filter((t) => t.trim());
+      if (translators.length > 0) {
+        yamlObject.data.translators = translators;
+      }
     }
 
     if (data.edition) yamlObject.data.edition = data.edition;
@@ -41,9 +43,11 @@ export const generateYaml = (fileType: FileType, formData: FormData) => {
   } else if (fileType === "test") {
     const data = formData.data as TestData;
 
-    const college = data.college.filter((c) => c.trim());
-    if (college.length > 0) {
-      yamlObject.data.college = college;
+    if (data.college) {
+      const college = data.college.filter((c) => c.trim());
+      if (college.length > 0) {
+        yamlObject.data.college = college;
+      }
     }
 
     yamlObject.data.course = {

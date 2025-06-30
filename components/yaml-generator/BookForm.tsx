@@ -101,11 +101,11 @@ export function BookForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor={data.translators.length === 0 ? "add-translator" : "translators-0"}>
+        <Label htmlFor={!data.translators || data.translators.length === 0 ? "add-translator" : "translators-0"}>
           译者（可选）
           <LabelKbd>t</LabelKbd>
         </Label>
-        {data.translators.length === 0 ? (
+        {!data.translators || data.translators.length === 0 ? (
           <Button
             variant="outline"
             size="sm"
@@ -119,7 +119,7 @@ export function BookForm({
           </Button>
         ) : (
           <>
-            {data.translators.map((translator, index) => (
+            {data.translators?.map((translator, index) => (
               <div key={index} className="flex gap-2">
                 <Input
                   id={`translators-${index}`}
@@ -136,7 +136,7 @@ export function BookForm({
                   onClick={() => removeArrayItem("translators", index)}
                 >
                   <Trash2 className="w-4 h-4" />
-                  {data.translators.length == 1 
+                  {data.translators?.length == 1 
                     ? <ButtonKbd>{"e"}</ButtonKbd>
                     : index < 9 && <ButtonKbd>{"e" + (index + 1)}</ButtonKbd>
                   }

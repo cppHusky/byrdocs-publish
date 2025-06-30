@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { GitCommit, Upload, RotateCcw, AlertCircle, Loader2, Link2 } from "lucide-react"
-import { FileChangeItem } from "./file-change-item"
+import { FileChangeItem } from "../lib/file-change-item"
 import type { FileChange } from "@/lib/diff"
 import { 
   getUserFileChanges, 
@@ -29,7 +29,6 @@ import {
 } from "@/app/file-changes/actions"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { PrSuccessDialog } from "./pr-success-dialog"
 
 // Convert database result to FileChange format

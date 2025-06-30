@@ -1,11 +1,14 @@
+
 export interface FileChange {
   id: string;
   filename: string;
-  status: "created" | "modified" | "deleted";
-  content: string;
-  previousContent?: string;
+  status: "created" | "modified" | "deleted" | "unchanged";
+  content?: string; // YAML content
+  previousContent?: string; // Previous YAML content for modified files
   timestamp: Date;
   canRevert?: boolean;
+  hasConflict?: boolean; // For conflict detection
+  conflictType?: "content" | "deletion"; // Type of conflict detected
 }
 
 import { diffLines, diffWordsWithSpace, Change } from 'diff';

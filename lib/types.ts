@@ -3,7 +3,7 @@ export type FileType = "book" | "test" | "doc";
 export interface BookData {
   title: string;
   authors: string[];
-  translators: string[];
+  translators?: string[];
   edition: string;
   publisher: string;
   publish_year: string;
@@ -12,7 +12,7 @@ export interface BookData {
 }
 
 export interface TestData {
-  college: string[];
+  college?: string[];
   course: {
     type: string;
     name: string;

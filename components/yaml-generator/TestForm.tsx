@@ -39,7 +39,7 @@ export function TestForm({
         </Label>
         <CollegeMultiSelect
           id="school"
-          selectedColleges={data.college.filter((c) => c.trim())}
+          selectedColleges={data.college?.filter((c) => c.trim()) || []}
           onCollegesChange={(colleges) =>
             setFormData((prev: any) => ({
               ...prev,

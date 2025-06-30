@@ -619,7 +619,7 @@ export default function YamlGenerator() {
             }
           } else if (fileType === 'test') {
             const collegeMultiSelect = document.querySelector('[data-testid="college-multiselect"] [role="combobox"]') as HTMLElement;
-            if (collegeMultiSelect && (formData.data as TestData).college?.length > 0) {
+            if (collegeMultiSelect && (formData.data as TestData).college && (formData.data as TestData).college!.length > 0) {
               elementToFocus = null;
             } else {
               elementToFocus = collegeMultiSelect;

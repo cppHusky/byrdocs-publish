@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build",
     "cf-build": "prisma generate && pnpm dlx @cloudflare/next-on-pages@1",
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "lint": "next lint",
     "start": "next start",
     "preview": "npm run cf-build && wrangler pages dev",

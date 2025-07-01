@@ -263,7 +263,7 @@ export function FileListItemEnhanced({
                     title="编辑"
                     className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 >
-                  <Link href={`/edit/${fileChange.id}`} onClick={(e) => e.stopPropagation()}>
+                  <Link href={`/edit/${fileChange.id}?from=edit`} onClick={(e) => e.stopPropagation()}>
                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Link>
                 </Button>

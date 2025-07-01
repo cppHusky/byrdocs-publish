@@ -42,7 +42,7 @@ import {
   deleteFile,
   discardChanges,
 } from "../actions";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useArrayManipulation } from "@/hooks/useArrayManipulation";
 import { BackToPage } from "@/components/back-to-home";
@@ -63,6 +63,9 @@ export function EditFileClient({
   courseList,
 }: EditFileClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromEdit = searchParams.get('from') === 'edit';
+  const returnPath = fromEdit ? '/edit' : '/';
   const [formData, setFormData] = useState<any>(null);
   const [allTypeData, setAllTypeData] = useState<AllFileData | null>(null);
   const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
@@ -84,8 +87,8 @@ export function EditFileClient({
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">文件不存在</h2>
           <p className="text-muted-foreground mb-4">找不到指定的文件。</p>
-          <Link href="/edit">
-            <Button variant="outline">返回文件列表</Button>
+          <Link href={returnPath}>
+            <Button variant="outline">{fromEdit ? '返回文件列表' : '返回首页'}</Button>
           </Link>
         </div>
       </div>
@@ -283,7 +286,7 @@ export function EditFileClient({
     setIsLoading(true);
     try {
       await deleteFile(fileChange.id);
-      router.push("/edit");
+      router.push(returnPath);
     } catch (error) {
       console.error("Failed to delete file:", error);
     } finally {
@@ -299,8 +302,8 @@ export function EditFileClient({
       await discardChanges(fileChange.id);
       
       if (fileChange.status === 'created') {
-        // For newly created files, go back to the edit list
-        router.push("/edit");
+        // For newly created files, go back to the return path
+        router.push(returnPath);
       } else {
         // For modified files, refresh the current page
         router.refresh();
@@ -389,7 +392,7 @@ export function EditFileClient({
         await createOrUpdateFileChange(fileChange.id, yamlContent, false);
       }
 
-      router.push("/edit");
+      router.push(returnPath);
     } catch (error) {
       console.error("Failed to save file:", error);
     } finally {
@@ -402,7 +405,7 @@ export function EditFileClient({
     return (
       <ShortcutProvider>
         <div className="space-y-6">
-          <BackToPage path="/edit" shortcut="m">返回文件列表</BackToPage>
+          <BackToPage path={returnPath} shortcut="m">{fromEdit ? '返回文件列表' : '返回首页'}</BackToPage>
           
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -442,7 +445,7 @@ export function EditFileClient({
   return (
     <ShortcutProvider>
       <div className="space-y-4 sm:space-y-6">
-        <BackToPage path="/edit" shortcut="m">返回文件列表</BackToPage>
+        <BackToPage path={returnPath} shortcut="m">{fromEdit ? '返回文件列表' : '返回首页'}</BackToPage>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0 flex-1">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button, ButtonKbd } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, ChevronRight, Edit, Save, X, Undo2, FileText, FilePlus, FileX, AlertCircle } from "lucide-react"
@@ -24,6 +24,7 @@ import { CopyButton } from "../components/copy-button"
 import { CodeRenderer } from "../components/code-renderer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getStatusConfig } from "./file-status-icon"
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd"
 
 interface FileChangeItemProps {
   fileChange: FileChange
@@ -232,6 +233,7 @@ export function FileChangeItem({ fileChange, onUpdate, onRevert }: FileChangeIte
             onClick={() => setShowRevertDialog(false)}
           >
             取消
+            <ButtonKbd>n</ButtonKbd>
           </Button>
           <Button 
             variant="destructive" 
@@ -241,6 +243,7 @@ export function FileChangeItem({ fileChange, onUpdate, onRevert }: FileChangeIte
             }}
           >
             确认放弃
+            <TransparentButtonKbd>y</TransparentButtonKbd>
           </Button>
         </DialogFooter>
       </DialogContent>

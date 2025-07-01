@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button, ButtonKbd } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   ChevronDown, 
@@ -37,6 +37,7 @@ import { getFileDisplayInfo } from "@/lib/display-utils"
 import { CodeRenderer } from "./code-renderer"
 import { getStatusConfig } from "@/lib/file-status-icon"
 import Link from "next/link"
+import { TransparentButtonKbd } from "./ui/transparent-button-kbd"
 
 interface FileListItemEnhancedProps {
   fileChange: FileChange
@@ -319,6 +320,7 @@ export function FileListItemEnhanced({
             onClick={() => setShowRevertDialog(false)}
           >
             取消
+            <ButtonKbd>n</ButtonKbd>
           </Button>
           <Button 
             variant="destructive" 
@@ -328,6 +330,7 @@ export function FileListItemEnhanced({
             }}
           >
             确认放弃
+            <TransparentButtonKbd>y</TransparentButtonKbd>
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -345,16 +345,12 @@ export default function GitHubSetupPage() {
                   </div>
                   <Button
                     onClick={() =>
-                      window.open(
-                        "https://github.com/apps/byrdocs-publish/installations/new",
-                        "_blank"
-                      )
+                      router.push("https://github.com/apps/byrdocs-publish/installations/new")
                     }
                     className="flex items-center space-x-1 w-full sm:w-auto"
                   >
                     <Settings className="w-4 h-4" />
                     <span>安装应用</span>
-                    <ExternalLink className="w-4 h-4" />
                     <ButtonKbd invert={true}>i</ButtonKbd>
                   </Button>
                 </div>
@@ -479,16 +475,12 @@ export default function GitHubSetupPage() {
                       <Button
                         variant="outline"
                         onClick={() =>
-                          window.open(
-                            "https://github.com/apps/byrdocs-publish/installations/new",
-                            "_blank"
-                          )
+                          router.push("https://github.com/apps/byrdocs-publish/installations/new")
                         }
                         className="flex items-center space-x-1"
                       >
                         <Settings className="w-4 h-4" />
                         <span>安装应用</span>
-                        <ExternalLink className="w-4 h-4" />
                         <ButtonKbd>i</ButtonKbd>
                       </Button>
                     </div>

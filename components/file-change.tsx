@@ -421,12 +421,14 @@ export function FileChanges() {
               onClick={() => setShowRevertDialog(false)}
             >
               取消
+              <ButtonKbd>n</ButtonKbd>
             </Button>
             <Button 
               variant="destructive" 
               onClick={handleRevertAll}
             >
               确认放弃
+              <TransparentButtonKbd>y</TransparentButtonKbd>
             </Button>
           </DialogFooter>
         </DialogContent>

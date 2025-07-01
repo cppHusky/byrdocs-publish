@@ -5,6 +5,7 @@ import { Plus, ArrowRight, Edit } from "lucide-react";
 import { FileChanges } from "@/components/file-change";
 import { useRouter } from "next/navigation";
 import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function HomePage() {
   const router = useRouter();
@@ -25,6 +26,11 @@ export default function HomePage() {
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold">
               BYR Docs Publish
             </h1>
+            <p className="text-muted-foreground">
+              上传文件和编写
+              <Link href="https://byrdocs.org" target="_blank" className="text-blue-500 dark:text-blue-400 hover:underline mx-1">BYR Docs</Link>
+              元信息
+            </p>
           </div>
 
           {/* 主要操作按钮 */}

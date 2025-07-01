@@ -36,6 +36,7 @@ interface FileUploadProps {
   onReset?: () => void; // 重置回调
   onSwitchToUrl?: (url: string) => void; // 切换到粘贴链接模式的回调
   onFileSelected?: (file: File | null) => void; // 文件选择回调
+  disableShortcuts?: boolean; // 禁用快捷键
 }
 
 interface S3Credentials {
@@ -66,7 +67,8 @@ export default function FileUpload({
   initialFileInfo,
   onReset,
   onSwitchToUrl,
-  onFileSelected
+  onFileSelected,
+  disableShortcuts = false
 }: FileUploadProps) {
   const { token, isLoading } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -468,7 +470,7 @@ export default function FileUpload({
           >
             使用 GitHub 登录
             <ExternalLink className="w-4 h-4 mr-2" />
-            <ButtonKbd invert={true}>l</ButtonKbd>
+            {!disableShortcuts && <ButtonKbd invert={true}>l</ButtonKbd>}
           </Button>
         </CardContent>
       </Card>
@@ -510,7 +512,7 @@ export default function FileUpload({
                   className="px-0 ml-1 pointer-events-none"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <ButtonKbd>u</ButtonKbd>
+                  {!disableShortcuts && <ButtonKbd>u</ButtonKbd>}
                 </Button>
               </p>
               <p className={`text-xs transition-colors ${
@@ -547,7 +549,7 @@ export default function FileUpload({
                 disabled={uploadStatus === 'calculating' || uploadStatus === 'preparing' || uploadStatus === 'uploading'}
               >
                 <Trash2 className="w-4 h-4" />
-                <ButtonKbd>d</ButtonKbd>
+                {!disableShortcuts && <ButtonKbd>d</ButtonKbd>}
               </Button>
             </div>
 
@@ -614,7 +616,7 @@ export default function FileUpload({
                         onClick={handleUseExistingFile}
                       >
                         使用该文件
-                        <ButtonKbd>r</ButtonKbd>
+                        {!disableShortcuts && <ButtonKbd>r</ButtonKbd>}
                       </Button>
                     </div>
                   ) : (
@@ -633,7 +635,7 @@ export default function FileUpload({
                 >
                   <UploadIcon className="w-4 h-4 mr-1" />
                   上传
-                  <ButtonKbd invert={true}>f</ButtonKbd>
+                  {!disableShortcuts && <ButtonKbd invert={true}>f</ButtonKbd>}
                 </Button>
               ) : uploadStatus === 'calculating' ? (
                 <>
@@ -643,7 +645,7 @@ export default function FileUpload({
                     onClick={handleCancel}
                   >
                     取消
-                    <ButtonKbd>c</ButtonKbd>
+                    {!disableShortcuts && <ButtonKbd>c</ButtonKbd>}
                   </Button>
                 </>
               ) : uploadStatus === 'preparing' || uploadStatus === 'uploading' ? (
@@ -654,7 +656,7 @@ export default function FileUpload({
                     onClick={handleCancel}
                   >
                     取消
-                    <ButtonKbd>c</ButtonKbd>
+                    {!disableShortcuts && <ButtonKbd>c</ButtonKbd>}
                   </Button>
                 </>
               ) : uploadStatus === 'success' ? (

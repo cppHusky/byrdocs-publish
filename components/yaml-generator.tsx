@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import hljs from "highlight.js/lib/core";
 import yaml from "highlight.js/lib/languages/yaml";
 import { Button, ButtonKbd } from "@/components/ui/button";
+import { useArrayManipulation } from "@/hooks/useArrayManipulation";
 import {
   Card,
   CardContent
@@ -43,6 +44,8 @@ export default function YamlGenerator() {
   const router = useRouter();
   // 课程列表状态
   const [courseList, setCourseList] = useState<string[]>([]);
+  // 元数据状态
+  const [metadata2Data, setMetadata2Data] = useState<any[]>([]);
 
   // 初始化 highlight.js 和获取课程数据
   useEffect(() => {
@@ -53,6 +56,9 @@ export default function YamlGenerator() {
       try {
         const response = await fetch('https://files.byrdocs.org/metadata2.json');
         const data: any = await response.json();
+        
+        // 保存完整的元数据
+        setMetadata2Data(data);
         
         // 提取所有课程名称
         const courses = new Set<string>();
@@ -219,119 +225,8 @@ export default function YamlGenerator() {
     });
   };
 
-
-  const addArrayItem = (field: string, subField?: string) => {
-    setFormData((prev) => {
-      let newData;
-      let newIndex;
-      
-      if (subField) {
-        // @ts-ignore
-        const currentArray = prev.data[field][subField];
-        newIndex = currentArray.length;
-        newData = {
-          ...prev,
-          data: {
-            ...prev.data,
-            [field]: {
-              // @ts-ignore
-              ...prev.data[field],
-              [subField]: [...currentArray, ""]
-            }
-          }
-        };
-      } else {
-        // @ts-ignore
-        const currentArray = prev.data[field];
-        newIndex = currentArray.length;
-        newData = {
-          ...prev,
-          data: {
-            ...prev.data,
-            [field]: [...currentArray, ""]
-          }
-        };
-      }
-      
-      // 延迟聚焦到新添加的输入框
-      setTimeout(() => {
-        const inputId = `${field}-${newIndex}`;
-        const inputElement = document.getElementById(inputId);
-        if (inputElement) {
-          inputElement.focus();
-        }
-      }, 100);
-      
-      return newData;
-    });
-  };
-
-  const removeArrayItem = (field: string, index: number, subField?: string) => {
-    setFormData((prev) => {
-      if (subField) {
-        // @ts-ignore
-        const currentArray = prev.data[field][subField];
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            [field]: {
-              // @ts-ignore
-              ...prev.data[field],
-              [subField]: currentArray.filter((_: any, i: number) => i !== index)
-            }
-          }
-        };
-      } else {
-        // @ts-ignore
-        const currentArray = prev.data[field];
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            [field]: currentArray.filter((_: any, i: number) => i !== index)
-          }
-        };
-      }
-    });
-  };
-
-  const updateArrayItem = (
-    field: string,
-    index: number,
-    value: string,
-    subField?: string
-  ) => {
-    setFormData((prev) => {
-      if (subField) {
-        // @ts-ignore
-        const currentArray = [...prev.data[field][subField]];
-        currentArray[index] = value;
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            [field]: {
-              // @ts-ignore
-              ...prev.data[field],
-              [subField]: currentArray
-            }
-          }
-        };
-      } else {
-        // @ts-ignore
-        const currentArray = [...prev.data[field]];
-        currentArray[index] = value;
-        return {
-          ...prev,
-          data: {
-            ...prev.data,
-            [field]: currentArray
-          }
-        };
-      }
-    });
-  };
+  // Array manipulation helpers
+  const { updateArrayItem, removeArrayItem, addArrayItem } = useArrayManipulation(setFormData);
 
   const resetForm = (type: FileType) => {
     setFileType(type);
@@ -377,6 +272,11 @@ export default function YamlGenerator() {
       data: initialData,
     }));
   };
+
+  // 检查重复ID
+  const checkForDuplicateId = useCallback((id: string): boolean => {
+    return metadata2Data.some((item: any) => item.id === id);
+  }, [metadata2Data]);
 
   // 验证步骤2
   const validateStep2 = (): boolean => {
@@ -511,6 +411,12 @@ export default function YamlGenerator() {
             resetForm(fileTypes[selectedTypeIndex]);
             setStep(2);
           } else if (step === 2 && validateStep2()) {
+            const currentId = formData.id;
+            if (currentId && checkForDuplicateId(currentId)) {
+              // Redirect to edit page if duplicate ID found
+              router.push(`/edit/${currentId}`);
+              return;
+            }
             setStep(3);
           } else if (step === 3 && validateStep3()) {
             setHighlightedFields([]);
@@ -564,6 +470,12 @@ export default function YamlGenerator() {
         if (step === 2 && e.key === 'Enter') {
           e.preventDefault();
           if (validateStep2()) {
+            const currentId = formData.id;
+            if (currentId && checkForDuplicateId(currentId)) {
+              // Redirect to edit page if duplicate ID found
+              router.push(`/edit/${currentId}`);
+              return;
+            }
             setStep(3);
           }
           return;
@@ -596,7 +508,7 @@ export default function YamlGenerator() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [step, selectedTypeIndex, validateStep2, validateStep3, getHighlightedFieldIds, resetForm, setHighlightedFields, setStep, submitYaml, createNewMetadata, hasDownloaded, submissionSuccess, router]);
+  }, [step, selectedTypeIndex, validateStep2, validateStep3, getHighlightedFieldIds, resetForm, setHighlightedFields, setStep, submitYaml, createNewMetadata, hasDownloaded, submissionSuccess, router, checkForDuplicateId, formData.id]);
 
   useEffect(() => {
     if (previousStep === 3 && step !== 3) {
@@ -778,6 +690,7 @@ export default function YamlGenerator() {
                 setStep={setStep}
                 setPreviousStep={setPreviousStep}
                 step={step}
+                metadata2Data={metadata2Data}
               />
             )}
             {(step === 3 && !showPreview) && (

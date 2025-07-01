@@ -9,6 +9,7 @@ export interface FileChange {
   canRevert?: boolean;
   hasConflict?: boolean; // For conflict detection
   conflictType?: "content" | "deletion"; // Type of conflict detected
+  md5Hash?: string; // MD5 hash for file identification
 }
 
 import { diffLines, diffWordsWithSpace, Change } from 'diff';

@@ -13,6 +13,7 @@ import {
   Upload as UploadIcon,
   FileText,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { FileType } from "@/lib/types";
 import { extractMD5FromURL, extractFileTypeFromURL, extractFileNameFromURL, validateURLFileType } from "@/lib/validate";
 import FileUpload from "@/components/file-upload";
@@ -32,6 +33,7 @@ interface Step2Props {
   setStep: (step: number) => void;
   setPreviousStep: (step: number) => void;
   step: number;
+  metadata2Data: any[];
 }
 
 export function Step2({
@@ -49,7 +51,27 @@ export function Step2({
   setStep,
   setPreviousStep,
   step,
+  metadata2Data,
 }: Step2Props) {
+  const router = useRouter();
+
+  const checkForDuplicateId = (id: string): boolean => {
+    return metadata2Data.some((item: any) => item.id === id);
+  };
+
+  const handleNextStep = () => {
+    if (!validateStep2()) return;
+    
+    const currentId = formData.id;
+    if (currentId && checkForDuplicateId(currentId)) {
+      // Redirect to edit page if duplicate ID found
+      router.push(`/edit/${currentId}`);
+      return;
+    }
+    
+    // Proceed to step 3 if no duplicate
+    setStep(3);
+  };
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
@@ -252,7 +274,7 @@ export function Step2({
           上一步
           <ButtonKbd>z</ButtonKbd>
         </Button>
-        <Button onClick={() => setStep(3)} disabled={!validateStep2()}>
+        <Button onClick={handleNextStep} disabled={!validateStep2()}>
           下一步：填写详细信息
           <ButtonKbd invert={true}>x</ButtonKbd>
         </Button>

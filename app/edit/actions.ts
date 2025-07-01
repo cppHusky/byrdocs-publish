@@ -321,7 +321,7 @@ export async function createOrUpdateFileChange(
         where: { id: existingChange.id },
         data: {
           content: yamlContent,
-          status: 'modified',
+          status: existingChange.status === 'created' ? 'created' : 'modified',
           updatedAt: new Date(),
         },
       });
@@ -348,6 +348,51 @@ export async function createOrUpdateFileChange(
       }
     }
   }
+  
+  revalidatePath('/edit');
+}
+
+export async function handleFileReupload(
+  originalFileId: string,
+  newFileId: string,
+  yamlContent: string
+): Promise<void> {
+  await requireAuth();
+  
+  // First, delete the original file record
+  await deleteFile(originalFileId);
+  
+  // Then create a new file record with the new MD5
+  await createOrUpdateFileChange(newFileId, yamlContent, true);
+  
+  revalidatePath('/edit');
+}
+
+export async function getFileById(fileId: string): Promise<MergedFile | null> {
+  await requireAuth();
+  
+  // Get all merged files and find the specific one
+  const allFiles = await mergeFilesWithChanges();
+  return allFiles.find(file => file.id === fileId) || null;
+}
+
+export async function discardChanges(fileId: string): Promise<void> {
+  await requireAuth();
+  const user = await getUserInfo();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+  
+  const prisma = getPrismaClient();
+  
+  // Delete the FileChange record to discard changes
+  await prisma.fileChange.deleteMany({
+    where: {
+      md5Hash: fileId,
+      userId: parseInt(user.sub),
+    }
+  });
   
   revalidatePath('/edit');
 }

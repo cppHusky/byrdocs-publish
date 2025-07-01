@@ -12,16 +12,6 @@ export default async function EditPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
-        <Link 
-          href="/" 
-          className="inline-flex items-center mb-4 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          返回首页
-        </Link>
-      </div>
-      
       <EditClient initialFiles={files} />
     </div>
   )

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -36,6 +37,7 @@ export function FileChangeItem({ fileChange, onUpdate, onRevert }: FileChangeIte
   const [editContent, setEditContent] = useState(fileChange.content || "")
   const [showRevertDialog, setShowRevertDialog] = useState(false)
   const { actualTheme } = useTheme()
+  const router = useRouter()
 
   // Initialize highlight.js for YAML
   useEffect(() => {
@@ -145,10 +147,7 @@ export function FileChangeItem({ fileChange, onUpdate, onRevert }: FileChangeIte
                     title="编辑"
                     onClick={(e) => {
                     e.stopPropagation()
-                    if (!isExpanded) {
-                      setIsExpanded(true)
-                    }
-                    setIsEditing(true)
+                    router.push(`/edit/${fileChange.md5Hash || fileChange.id}`)
                     }}
                     className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 >

@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, ArrowRight, Edit } from "lucide-react";
 import { FileChanges } from "@/components/file-change";
 import { useRouter } from "next/navigation";
-import { ShortcutProvider } from "@/components/ui/button";
+import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
 
 export default function HomePage() {
   const router = useRouter();
@@ -39,9 +39,14 @@ export default function HomePage() {
                     <div className="p-2 sm:p-3 bg-muted/50 group-hover:bg-muted rounded-lg transition-colors">
                       <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
-                    <span className="text-lg sm:text-xl font-semibold text-foreground">
-                      添加文件
-                    </span>
+                    <div className="flex items-center">
+                      <span className="text-lg sm:text-xl font-semibold text-foreground">
+                        添加文件
+                      </span>
+                      <Button onClick={handleAddFile} variant={"ghost"} className="pointer-events-none">
+                        <ButtonKbd>1</ButtonKbd>
+                      </Button>
+                    </div>
                   </div>
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                 </div>
@@ -58,9 +63,14 @@ export default function HomePage() {
                     <div className="p-2 sm:p-3 bg-muted/50 group-hover:bg-muted rounded-lg transition-colors">
                       <Edit className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
-                    <span className="text-lg sm:text-xl font-semibold text-foreground">
-                      修改文件
-                    </span>
+                    <div className="flex items-center">
+                      <span className="text-lg sm:text-xl font-semibold text-foreground">
+                        修改文件
+                      </span>
+                      <Button onClick={handleManageFiles} variant={"ghost"} className="pointer-events-none">
+                        <ButtonKbd>2</ButtonKbd>
+                      </Button>
+                    </div>
                   </div>
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                 </div>

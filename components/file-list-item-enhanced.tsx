@@ -3,14 +3,11 @@
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { 
   ChevronDown, 
   ChevronRight, 
   Edit, 
-  Save, 
-  X, 
   Undo2, 
   FileText, 
   FilePlus, 
@@ -39,23 +36,20 @@ import { parse } from "yaml"
 import { getFileDisplayInfo } from "@/lib/display-utils"
 import { CodeRenderer } from "./code-renderer"
 import { getStatusConfig } from "@/lib/file-status-icon"
+import Link from "next/link"
 
 interface FileListItemEnhancedProps {
   fileChange: FileChange
-  onUpdate?: (id: string, content: string) => Promise<void> | void
   onRevert?: (id: string) => void
   onDelete?: (id: string) => void
 }
 
 export function FileListItemEnhanced({ 
   fileChange, 
-  onUpdate, 
   onRevert,
   onDelete
 }: FileListItemEnhancedProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editContent, setEditContent] = useState("")
   const [showRevertDialog, setShowRevertDialog] = useState(false)
   const [isCopying, setIsCopying] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
@@ -72,12 +66,6 @@ export function FileListItemEnhanced({
   }, [fileChange.content])
 
 
-  // Update edit content when actual content changes and not currently editing
-  useEffect(() => {
-    if (!isEditing) {
-      setEditContent(actualContent || "")
-    }
-  }, [actualContent, isEditing])
 
   // Parse YAML content to get display information
   const yamlData = useMemo(() => {
@@ -104,29 +92,6 @@ export function FileListItemEnhanced({
   const statusConfig = getStatusConfig(fileChange.status)
   const StatusIcon = statusConfig.icon
 
-  const handleSave = async () => {
-    if (onUpdate) {
-      // Don't save if content hasn't changed
-      if (editContent !== actualContent) {
-        // Prevent saving empty content unless the original was also empty
-        if (editContent.trim() !== "" || actualContent.trim() === "") {
-          try {
-            await onUpdate(fileChange.id, editContent)
-          } catch (error) {
-            console.error('Failed to save file:', error)
-            // Don't exit editing mode if save failed
-            return
-          }
-        }
-      }
-      setIsEditing(false)
-    }
-  }
-
-  const handleCancel = () => {
-    setEditContent(actualContent)
-    setIsEditing(false)
-  }
 
   const handleRevert = () => {
     if (onRevert) {
@@ -170,7 +135,7 @@ export function FileListItemEnhanced({
   return (
     <>
     <Card>
-      <div className="cursor-pointer" onClick={() => !isEditing && setIsExpanded(!isExpanded)}>
+      <div className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
             <div className="transition-transform duration-200 flex-shrink-0">
@@ -255,10 +220,9 @@ export function FileListItemEnhanced({
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 dark:text-gray-400 block sm:hidden cursor-text select-text" onClick={(e) => e.stopPropagation()}>
-                {fileChange.timestamp.toLocaleString("zh-CN")}
+                {fileChange.status !== 'unchanged' && fileChange.timestamp.toLocaleString("zh-CN")}
             </p>
             <div className="flex items-center space-x-1 sm:space-x-2">
-                {!isEditing && (
                 <Button
                     size="sm"
                     variant="ghost"
@@ -278,22 +242,17 @@ export function FileListItemEnhanced({
                       <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                     )}
                 </Button>
-                )}
-                {fileChange.status !== "deleted" && !isEditing && (
+                {fileChange.status !== "deleted" && (
                 <Button
+                    asChild
                     size="sm"
                     variant="ghost"
                     title="编辑"
-                    onClick={(e) => {
-                    e.stopPropagation()
-                    if (!isExpanded) {
-                      setIsExpanded(true)
-                    }
-                    setIsEditing(true)
-                    }}
                     className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 >
+                  <Link href={`/edit/${fileChange.id}`} onClick={(e) => e.stopPropagation()}>
                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </Link>
                 </Button>
                 )}
                 {(onDelete || (fileChange.canRevert !== false && onRevert)) && (
@@ -326,52 +285,21 @@ export function FileListItemEnhanced({
         </div>
       </div>
 
-      {isExpanded && (
+      {isExpanded && actualContent && (
         <CardContent className="pt-0 pb-3 px-3 sm:pb-4 sm:px-4">
-          {isEditing ? (
-            <div className="space-y-3">
-              <div className={cn(
-                "relative",
-                "yaml-highlight",
-                actualTheme === 'dark' ? 'yaml-dark' : 'yaml-light'
-              )}>
-                <Textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="font-mono text-sm min-h-[300px] resize-none"
-                  placeholder="输入YAML内容..."
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-2">
-                <Button size="sm" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
-                  <X className="h-3 w-3 mr-1" />
-                  取消
-                </Button>
-                <Button size="sm" onClick={handleSave} className="w-full sm:w-auto">
-                  <Save className="h-3 w-3 mr-1" />
-                  保存
-                </Button>
-              </div>
-            </div>
-          ) : actualContent ? (
-            <div className="border rounded-lg overflow-hidden">
-              <CodeRenderer
-                content={actualContent}
-                type={fileChange.status === "deleted" ? "deleted" 
-                      : fileChange.status === "created" ? "created"
-                      : fileChange.status === "modified" ? "diff"
-                      : fileChange.status === "unchanged" ? "unchanged"
-                      : "created"}
-                filename={fileChange.filename}
-                actualTheme={actualTheme}
-                diff={fileChange.status === "modified" && diff ? diff : undefined}
-              />
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              无法生成 YAML 内容
-            </div>
-          )}
+          <div className="border rounded-lg overflow-hidden">
+            <CodeRenderer
+              content={actualContent}
+              type={fileChange.status === "deleted" ? "deleted" 
+                    : fileChange.status === "created" ? "created"
+                    : fileChange.status === "modified" ? "diff"
+                    : fileChange.status === "unchanged" ? "unchanged"
+                    : "created"}
+              filename={fileChange.filename}
+              actualTheme={actualTheme}
+              diff={fileChange.status === "modified" && diff ? diff : undefined}
+            />
+          </div>
         </CardContent>
       )}
     </Card>

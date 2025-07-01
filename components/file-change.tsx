@@ -41,6 +41,7 @@ function convertToFileChange(result: FileChangeResult): FileChange {
     previousContent: result.previousContent || undefined,
     timestamp: new Date(result.updatedAt),
     canRevert: true,
+    md5Hash: result.md5Hash,
   };
 }
 

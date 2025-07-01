@@ -51,7 +51,7 @@ async function getGitHubUser(accessToken: string): Promise<GitHubUser> {
   return response.json();
 }
 
-export async function handleGitHubCallback(code: string) {
+export async function handleGitHubCallback(code: string, state?: string) {
   'use server';
   
   try {
@@ -89,13 +89,23 @@ export async function handleGitHubCallback(code: string) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
     
-    // Check if there's a redirect URL stored
-    const redirectUrl = await getServerCookie('redirect_after_login') || '/';
+    // Determine redirect URL based on state parameter or fallback to stored cookie
+    let redirectUrl = '/';
     
-    // Clear the redirect cookie
-    await setServerCookie('redirect_after_login', '', {
-      maxAge: 0,
-    });
+    if (state && state !== 'normal' && state !== 'close') {
+      // State contains the redirect path
+      redirectUrl = decodeURIComponent(state);
+    } else {
+      // Check if there's a redirect URL stored in cookie
+      const storedRedirectUrl = await getServerCookie('redirect_after_login');
+      if (storedRedirectUrl) {
+        redirectUrl = storedRedirectUrl;
+        // Clear the redirect cookie
+        await setServerCookie('redirect_after_login', '', {
+          maxAge: 0,
+        });
+      }
+    }
 
     return redirectUrl;
   } catch (error) {

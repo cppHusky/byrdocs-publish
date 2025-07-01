@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 
 export default async function EditPage() {
-  await requireAuth()
+  await requireAuth('/edit')
   
   // Fetch merged files data
   const files = await mergeFilesWithChanges()

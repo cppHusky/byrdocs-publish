@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button, ShortcutProvider } from "@/components/ui/button";
+import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd";
 import { Search, Loader2, AlertCircle, Plus, GitCommit, X } from "lucide-react";
 import { FileListItemEnhanced } from "@/components/file-list-item-enhanced";
 import { FileChange } from "@/lib/diff";
@@ -13,6 +14,7 @@ import { BookData, TestData, DocData } from "@/lib/types";
 import { parse } from "yaml";
 import Link from "next/link";
 import { BackToHome } from "@/components/back-to-home";
+import { useRouter } from "next/navigation";
 
 interface EditClientProps {
   initialFiles: FileChange[];
@@ -27,6 +29,7 @@ export function EditClient({ initialFiles }: EditClientProps) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const router = useRouter();
 
   // Filter files based on search query
   const filteredFiles = useMemo(() => {
@@ -229,7 +232,7 @@ export function EditClient({ initialFiles }: EditClientProps) {
       <div className="space-y-6">
         <BackToHome shortcut="m" />
         {/* Header with Title and Action Buttons */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               编辑文件
@@ -238,21 +241,26 @@ export function EditClient({ initialFiles }: EditClientProps) {
               浏览和编辑 BYRDocs 元数据文件
             </p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Button asChild variant="outline">
-              <Link href="/add">
-                <Plus className="h-4 w-4 mr-2" />
-                新建文件
-              </Link>
+          <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center space-x-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                router.push("/add")
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              新建文件
+              <ButtonKbd>n</ButtonKbd>
             </Button>
             <Button
-              asChild
               className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white"
+              onClick={() => {
+                router.push("/")
+              }}
             >
-              <Link href="/">
-                <GitCommit className="h-4 w-4 mr-2" />
-                提交更改
-              </Link>
+              <GitCommit className="h-4 w-4 mr-2" />
+              提交更改
+              <TransparentButtonKbd>c</TransparentButtonKbd>
             </Button>
           </div>
         </div>

@@ -103,7 +103,7 @@ export function Navigation() {
               </>
             ) : (
               /* Login button when not authenticated */
-              <Button onClick={login} variant="outline" className="flex items-center space-x-1">
+              <Button onClick={() => login()} variant="outline" className="flex items-center space-x-1">
                 <GithubIcon className="w-5 h-5" />
                 <span>登录</span>
               </Button>

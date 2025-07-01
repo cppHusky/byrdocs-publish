@@ -1,6 +1,7 @@
 "use client"
 
 import { Button, ButtonKbd } from "@/components/ui/button"
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd"
 import { 
   Dialog,
   DialogContent,
@@ -60,7 +61,7 @@ export function PrSuccessDialog({ open, onOpenChange, prUrl, onClose }: PrSucces
           >
             <ExternalLink className="h-4 w-4 mr-2" />
             查看 Pull Request
-            <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">o</ButtonKbd>
+            <TransparentButtonKbd>o</TransparentButtonKbd>
           </Button>
         </DialogFooter>
       </DialogContent>

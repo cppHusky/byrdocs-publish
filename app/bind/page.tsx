@@ -32,6 +32,7 @@ import {
   type UserBinding 
 } from './actions';
 import { GithubIcon } from "@/components/icon/github";
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd";
 import { BackToHome } from "@/components/back-to-home";
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
@@ -50,7 +51,7 @@ export default function GitHubSetupPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      router.push(`/login?to=${encodeURIComponent('/bind')}`);
     }
   }, [user, isLoading, router]);
 
@@ -543,7 +544,7 @@ export default function GitHubSetupPage() {
                       >
                         <ArrowLeft className="w-4 h-4 mr-1" />
                         <span>返回首页</span>
-                        <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">h</ButtonKbd>
+                        <TransparentButtonKbd>h</TransparentButtonKbd>
                       </Button>
                     </div>
                   </div>

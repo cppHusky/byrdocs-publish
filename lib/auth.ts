@@ -34,11 +34,12 @@ export async function getUserInfo(): Promise<UserInfo | null> {
   };
 }
 
-export async function requireAuth(): Promise<UserInfo> {
+export async function requireAuth(currentPath?: string): Promise<UserInfo> {
   const userInfo = await getUserInfo();
   
   if (!userInfo) {
-    redirect('/login');
+    const redirectTo = currentPath ? `?to=${encodeURIComponent(currentPath)}` : '';
+    redirect(`/login${redirectTo}`);
   }
   
   return userInfo;

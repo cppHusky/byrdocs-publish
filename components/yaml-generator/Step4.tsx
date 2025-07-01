@@ -1,4 +1,5 @@
 import { Button, ButtonKbd } from "@/components/ui/button";
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd";
 import {
   Download,
   RotateCcw,
@@ -93,7 +94,7 @@ export function Step4({
               className="flex items-center bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white"
             >
               <span>返回主页</span>
-              <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">m</ButtonKbd>
+              <TransparentButtonKbd>m</TransparentButtonKbd>
             </Button>
           </div>
         </div>
@@ -126,7 +127,7 @@ export function Step4({
                     暂存
                   </>
                 )}
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">s</ButtonKbd>
+                <TransparentButtonKbd>s</TransparentButtonKbd>
               </Button>
             ) : (
               <Button
@@ -135,7 +136,7 @@ export function Step4({
               >
                 <Download className="w-4 h-4 mr-1" />
                 下载 YAML 文件
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">d</ButtonKbd>
+                <TransparentButtonKbd>d</TransparentButtonKbd>
               </Button>
             )}
           </>

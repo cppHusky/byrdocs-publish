@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button, ButtonKbd } from "@/components/ui/button"
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd"
 import { Badge } from "@/components/ui/badge"
 import { 
   Dialog,
@@ -317,7 +318,7 @@ export function FileChanges() {
               <Button variant="destructive" onClick={openRevertDialog} size="sm" disabled={isCommitting}>
                 <RotateCcw className="h-4 w-4 mr-1" />
                 <span>放弃更改</span>
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">r</ButtonKbd>
+                <TransparentButtonKbd>r</TransparentButtonKbd>
               </Button>
               {user && binding ? (
                 <Button onClick={handleCommit} disabled={isCommitting} className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white" size="sm">
@@ -330,7 +331,7 @@ export function FileChanges() {
                     <>
                       <GitCommit className="h-4 w-4 mr-1" />
                       <span>提交更改</span>
-                      <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">c</ButtonKbd>
+                      <TransparentButtonKbd>c</TransparentButtonKbd>
                     </>
                   )}
                 </Button>

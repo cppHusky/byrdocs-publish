@@ -18,9 +18,8 @@ interface EditFilePageProps {
 }
 
 export default async function EditFilePage({ params }: EditFilePageProps) {
-  await requireAuth()
-  
   const { id } = await params
+  await requireAuth(`/edit/${id}`)
   
   // Fetch file data and course list
   const [fileChange, courseList] = await Promise.all([

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
+import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -436,33 +437,34 @@ export function EditFileClient({
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <div className="flex items-center gap-2">
                 <StatusIcon className={`h-6 w-6 sm:h-8 sm:w-8 ${statusConfig.iconColor} flex-shrink-0`} />
-                <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate">
-                  编辑文件
+                <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 space-x-2 flex items-center">
+                  <div>编辑文件</div>
+                  {fileChange.status !== 'unchanged' && (
+                    <Badge 
+                      variant={fileChange.status === 'created' ? 'default' : fileChange.status === 'modified' ? 'secondary' : 'destructive'}
+                      className={
+                        fileChange.status === 'created' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex-shrink-0' 
+                          : fileChange.status === 'modified'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 flex-shrink-0'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex-shrink-0'
+                      }
+                    >
+                      {fileChange.status === 'created' ? '新建' : fileChange.status === 'modified' ? '已修改' : '已删除'}
+                    </Badge>
+                  )}
                 </h1>
               </div>
-              {fileChange.status !== 'unchanged' && (
-                <Badge 
-                  variant={fileChange.status === 'created' ? 'default' : fileChange.status === 'modified' ? 'secondary' : 'destructive'}
-                  className={
-                    fileChange.status === 'created' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex-shrink-0' 
-                      : fileChange.status === 'modified'
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 flex-shrink-0'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex-shrink-0'
-                  }
-                >
-                  {fileChange.status === 'created' ? '新建' : fileChange.status === 'modified' ? '已修改' : '已删除'}
-                </Badge>
-              )}
             </div>
             <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base truncate">
               {fileChange.filename}
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+          <div className="flex gap-2">
             {(fileChange.status === 'created' || fileChange.status === 'modified') && fileChange.canRevert && (
               <Button
                 variant="outline"
+                className="flex-1"
                 onClick={() => setShowDiscardDialog(true)}
                 disabled={isLoading}
               >
@@ -473,14 +475,15 @@ export function EditFileClient({
             )}
             <Button
               variant="destructive"
+              className="flex-1"
               onClick={handleDelete}
               disabled={isLoading}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               删除文件
-              <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">
+              <TransparentButtonKbd>
                 z
-              </ButtonKbd>
+              </TransparentButtonKbd>
             </Button>
           </div>
         </div>
@@ -585,20 +588,21 @@ export function EditFileClient({
                 setHighlightedFields={setHighlightedFields}
               />
             )}
-            <div className="flex justify-end">
+            <div className="flex justify-end w-full mt-4">
               <Button
                 onClick={handleSave}
                 disabled={isLoading}
-                className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white"
+                className="bg-green-600 hover:bg-green-600/90 dark:bg-green-800 dark:hover:bg-green-800/90 text-white w-full sm:w-auto"
               >
-                {isLoading && (
+                {isLoading ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
                 )}
-                <Save className="h-4 w-4 mr-2" />
                 暂存更改
-                <ButtonKbd className="dark:bg-white/10 bg-white/10 dark:text-white/70 text-white/70 dark:border-white/40 border-white/40">
+                <TransparentButtonKbd>
                   x
-                </ButtonKbd>
+                </TransparentButtonKbd>
               </Button>
             </div>
           </CardContent>

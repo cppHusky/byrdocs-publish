@@ -13,7 +13,7 @@ interface AuthContextType {
   binding: UserBinding | null;
   isLoading: boolean;
   isBindingLoading: boolean;
-  login: () => void;
+  login: (currentPath?: string) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
   refreshBinding: () => Promise<void>;
@@ -82,8 +82,9 @@ export function AuthProvider({ children, initialUser = null, initialToken = null
     }
   };
 
-  const login = () => {
-    router.push('/login');
+  const login = (currentPath?: string) => {
+    const redirectTo = currentPath ? `?to=${encodeURIComponent(currentPath)}` : '';
+    router.push(`/login${redirectTo}`);
   };
 
   const logout = async () => {

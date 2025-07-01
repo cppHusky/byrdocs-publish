@@ -16,7 +16,7 @@ function GitHubCallbackContent() {
   const { refreshUser, refreshBinding } = useAuth();
   useEffect(() => {
     if (code) {
-      handleGitHubCallback(code).then(async (redirectUrl) => {
+      handleGitHubCallback(code, state || undefined).then(async (redirectUrl) => {
         if (state === 'close') {
           window.close();
           return
@@ -28,7 +28,7 @@ function GitHubCallbackContent() {
         console.error('Failed to handle GitHub callback:', error);
       });
     }
-  }, [code]);
+  }, [code, state]);
 
   if (!code) {
     return (

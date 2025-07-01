@@ -12,6 +12,10 @@ export const runtime = 'edge'
 export const metadata: Metadata = {
   title: 'BYR Docs Publish',
   description: '上传文件和编写元信息',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export default async function RootLayout({

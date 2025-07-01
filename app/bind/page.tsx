@@ -389,7 +389,7 @@ export default function GitHubSetupPage() {
                   </Alert>
                 )}
 
-                {loading ? (
+                {loading && repositories.length === 0 ? (
                   <div className="flex items-center justify-center py-12 text-muted-foreground">
                     <RefreshCw className="w-6 h-6 animate-spin mr-2" />
                     <span>正在获取仓库列表...</span>

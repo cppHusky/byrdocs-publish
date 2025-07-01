@@ -8,7 +8,7 @@ export function useArrayManipulation(setFormData: (data: any) => void) {
       
       if (subField) {
         // @ts-ignore
-        const currentArray = prev.data[field][subField];
+        const currentArray = prev.data[field][subField] || [];
         newIndex = currentArray.length;
         newData = {
           ...prev,
@@ -23,7 +23,7 @@ export function useArrayManipulation(setFormData: (data: any) => void) {
         };
       } else {
         // @ts-ignore
-        const currentArray = prev.data[field];
+        const currentArray = prev.data[field] || [];
         newIndex = currentArray.length;
         newData = {
           ...prev,
@@ -51,7 +51,7 @@ export function useArrayManipulation(setFormData: (data: any) => void) {
     setFormData((prev: any) => {
       if (subField) {
         // @ts-ignore
-        const currentArray = prev.data[field][subField];
+        const currentArray = prev.data[field][subField] || [];
         return {
           ...prev,
           data: {
@@ -65,7 +65,7 @@ export function useArrayManipulation(setFormData: (data: any) => void) {
         };
       } else {
         // @ts-ignore
-        const currentArray = prev.data[field];
+        const currentArray = prev.data[field] || [];
         return {
           ...prev,
           data: {
@@ -86,7 +86,7 @@ export function useArrayManipulation(setFormData: (data: any) => void) {
     setFormData((prev: any) => {
       if (subField) {
         // @ts-ignore
-        const currentArray = [...prev.data[field][subField]];
+        const currentArray = [...(prev.data[field][subField] || [])];
         currentArray[index] = value;
         return {
           ...prev,
@@ -101,7 +101,7 @@ export function useArrayManipulation(setFormData: (data: any) => void) {
         };
       } else {
         // @ts-ignore
-        const currentArray = [...prev.data[field]];
+        const currentArray = [...(prev.data[field] || [])];
         currentArray[index] = value;
         return {
           ...prev,

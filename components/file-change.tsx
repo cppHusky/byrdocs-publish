@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { GitCommit, Upload, RotateCcw, AlertCircle, Loader2, Link2 } from "lucide-react"
-import { FileChangeItem } from "../lib/file-change-item"
+import { FileChangeItem } from "./file-change-item"
 import type { FileChange } from "@/lib/diff"
 import { 
   getUserFileChanges, 

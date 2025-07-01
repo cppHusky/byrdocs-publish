@@ -20,10 +20,10 @@ import { generateDiff, type FileChange } from "@/lib/diff"
 import hljs from "highlight.js/lib/core"
 import yaml from "highlight.js/lib/languages/yaml"
 import { useTheme } from "@/components/theme-provider"
-import { CopyButton } from "../components/copy-button"
-import { CodeRenderer } from "../components/code-renderer"
+import { CopyButton } from "./copy-button"
+import { CodeRenderer } from "./code-renderer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { getStatusConfig } from "./file-status-icon"
+import { getStatusConfig } from "../lib/file-status-icon"
 import { TransparentButtonKbd } from "@/components/ui/transparent-button-kbd"
 
 interface FileChangeItemProps {
@@ -92,7 +92,13 @@ export function FileChangeItem({ fileChange, onUpdate, onRevert }: FileChangeIte
               )}
             </div>
             <div className="p-1 sm:p-1.5 flex-shrink-0">
-              <StatusIcon className={cn("h-4 w-4 sm:h-5 sm:w-5", statusConfig.iconColor)} />
+              <StatusIcon className={cn(
+                "h-4 w-4 sm:h-5 sm:w-5",
+                fileChange.status === 'created' && "text-green-600 dark:text-green-400",
+                fileChange.status === 'modified' && "text-amber-600 dark:text-amber-400",
+                fileChange.status === 'deleted' && "text-red-600 dark:text-red-400",
+                fileChange.status === 'unchanged' && "text-gray-600 dark:text-gray-400"
+              )} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">

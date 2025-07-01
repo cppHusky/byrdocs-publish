@@ -135,7 +135,13 @@ export function FileListItemEnhanced({
 
   return (
     <>
-    <Card>
+    <Card className={cn(
+      "border",
+      fileChange.status === 'created' && "border-green-500 dark:border-green-600",
+      fileChange.status === 'modified' && "border-amber-500 dark:border-amber-600",
+      fileChange.status === 'deleted' && "border-red-500 dark:border-red-600",
+      fileChange.status === 'unchanged' && "border-border"
+    )}>
       <div className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
@@ -147,7 +153,13 @@ export function FileListItemEnhanced({
               )}
             </div>
             <div className="p-1 sm:p-1.5 flex-shrink-0">
-              <StatusIcon className={cn("h-4 w-4 sm:h-5 sm:w-5", statusConfig.iconColor)} />
+              <StatusIcon className={cn(
+                "h-4 w-4 sm:h-5 sm:w-5",
+                fileChange.status === 'created' && "text-green-600 dark:text-green-400",
+                fileChange.status === 'modified' && "text-amber-600 dark:text-amber-400",
+                fileChange.status === 'deleted' && "text-red-600 dark:text-red-400",
+                fileChange.status === 'unchanged' && "text-gray-600 dark:text-gray-400"
+              )} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex flex-col">

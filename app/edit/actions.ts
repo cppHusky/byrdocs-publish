@@ -188,8 +188,18 @@ export async function mergeFilesWithChanges(): Promise<MergedFile[]> {
     });
   }
   
-  // Sort by ID in dictionary order
-  mergedFiles.sort((a, b) => a.id.localeCompare(b.id));
+  // Sort: modified files first, then by ID in dictionary order
+  mergedFiles.sort((a, b) => {
+    // First priority: modified files (created, modified, deleted) come before unchanged
+    const aIsModified = a.status !== 'unchanged';
+    const bIsModified = b.status !== 'unchanged';
+    
+    if (aIsModified && !bIsModified) return -1;
+    if (!aIsModified && bIsModified) return 1;
+    
+    // Second priority: sort by ID in dictionary order
+    return a.id.localeCompare(b.id);
+  });
   
   return mergedFiles;
 }

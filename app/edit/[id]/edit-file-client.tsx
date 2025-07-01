@@ -75,6 +75,7 @@ export function EditFileClient({
   } | null>(null);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const [showNoChangesDialog, setShowNoChangesDialog] = useState(false);
 
   // Handle case where file doesn't exist
   if (!fileChange) {
@@ -374,6 +375,17 @@ export function EditFileClient({
       } else {
         // Normal update
         const yamlContent = generateYaml(finalFormData.type, finalFormData);
+        
+        // Check if content has actually changed
+        const originalContent = fileChange.content?.trim() || '';
+        const newContent = yamlContent.trim();
+        
+        if (originalContent === newContent) {
+          // No changes made
+          setShowNoChangesDialog(true);
+          return;
+        }
+        
         await createOrUpdateFileChange(fileChange.id, yamlContent, false);
       }
 
@@ -695,6 +707,28 @@ export function EditFileClient({
               >
                 {isLoading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
                 恢复文件
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* No Changes Dialog */}
+        <Dialog open={showNoChangesDialog} onOpenChange={setShowNoChangesDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>未检测到修改</DialogTitle>
+              <DialogDescription>
+                文件内容与原始内容相同，无需保存。如果您想修改文件，请先编辑内容后再保存。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  setShowNoChangesDialog(false);
+                  setIsLoading(false);
+                }}
+              >
+                确定
               </Button>
             </DialogFooter>
           </DialogContent>

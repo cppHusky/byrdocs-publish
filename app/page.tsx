@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, ArrowRight, Edit } from "lucide-react";
+import { Plus, ArrowRight, Edit, ExternalLink } from "lucide-react";
 import { FileChanges } from "@/components/file-change";
 import { useRouter } from "next/navigation";
 import { Button, ButtonKbd, ShortcutProvider } from "@/components/ui/button";
@@ -20,17 +20,38 @@ export default function HomePage() {
   return (
     <ShortcutProvider>
       <div>
-        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-12 space-y-8 sm:space-y-12">
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-12 space-y-4 sm:space-y-6">
           {/* 页面标题 */}
-          <div className="text-center space-y-2 sm:space-y-3">
+          <div className="text-center space-y-4 sm:space-y-6">
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold">
               BYR Docs Publish
             </h1>
-            <p className="text-muted-foreground">
-              上传文件和编写
-              <Link href="https://byrdocs.org" target="_blank" className="text-blue-500 dark:text-blue-400 hover:underline mx-1">BYR Docs</Link>
-              元信息
-            </p>
+            <div className="">
+              <p className="text-muted-foreground">
+                在提交之前，请您确保您已经阅读并理解
+                <Link
+                  href="https://github.com/byrdocs/byrdocs-archive/blob/master/CONTRIBUTING.md"
+                  target="_blank"
+                  className="text-blue-500 dark:text-blue-400 hover:underline mx-1 inline-block"
+                >
+                  <span className="flex items-center justify-center space-x-1">
+                    <span className="inline-block">BYR Docs 贡献指南</span>
+                    <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 inline-block"/>
+                  </span>
+                </Link>
+                <span className="text-muted-foreground">与</span>
+                <Link
+                  href="https://github.com/byrdocs/byrdocs-archive/blob/master/docs/%E6%96%87%E4%BB%B6%E8%A7%84%E5%88%99.md#%E6%96%87%E4%BB%B6%E6%94%B6%E5%BD%95%E8%A7%84%E5%88%99"
+                  target="_blank"
+                  className="text-blue-500 dark:text-blue-400 hover:underline mx-1 inline-block"
+                >
+                  <span className="flex items-center justify-center space-x-1">
+                    <span className="inline-block">BYR Docs 文件收录规则</span>
+                    <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 inline-block"/>
+                  </span>
+                </Link>
+              </p>
+            </div>
           </div>
 
           {/* 主要操作按钮 */}

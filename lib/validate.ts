@@ -35,7 +35,8 @@ export const validateYearRange = (
 
   const start = parseInt(startYear);
   const end = parseInt(endYear);
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
 
   if (start < 2000 || start > currentYear) {
     return {
